@@ -3,7 +3,7 @@
 <head>
 
     <title>hastebin</title>
-    <meta charset="utf-8"/>
+    <meta charset="utf-8" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,21 +11,22 @@
 
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css"
-          integrity="sha512-rO+olRTkcf304DQBxSWxln8JXCzTHlKnIdnMUwYvQa9/Jd4cQaNkItIUj6Z4nvW1dqK0SKXLbn9h4KwZTNtAyw=="
-          crossorigin="anonymous" referrerpolicy="no-referrer"/>
-    <link rel="stylesheet" type="text/css" href="application.css?v=0.0.8"/>
+        integrity="sha512-rO+olRTkcf304DQBxSWxln8JXCzTHlKnIdnMUwYvQa9/Jd4cQaNkItIUj6Z4nvW1dqK0SKXLbn9h4KwZTNtAyw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" type="text/css" href="solarized_dark.css" />
+    <link rel="stylesheet" type="text/css" href="application.css?v=0.0.9" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.12.4/jquery.min.js"
-            integrity="sha512-jGsMH83oKe9asCpkOVkBnUrDDTp8wl+adkB2D+//JtlxO4SrLoJdhbOysIFQJloQFD+C4Fl1rMsQZF76JjV0eQ=="
-            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        integrity="sha512-jGsMH83oKe9asCpkOVkBnUrDDTp8wl+adkB2D+//JtlxO4SrLoJdhbOysIFQJloQFD+C4Fl1rMsQZF76JjV0eQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"
-            integrity="sha512-bgHRAiTjGrzHzLyKOnpFvaEpGzJet3z4tZnXGjpsCcqOnAH6VGUx9frc5bcIhKTVLEiCO6vEhNAgx5jtLUYrfA=="
-            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        integrity="sha512-bgHRAiTjGrzHzLyKOnpFvaEpGzJet3z4tZnXGjpsCcqOnAH6VGUx9frc5bcIhKTVLEiCO6vEhNAgx5jtLUYrfA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <script type="text/javascript" src="ansi-to-html.js?v=0.0.8"></script>
     <script type="text/javascript" src="application.js?v=0.0.8"></script>
 
-    <meta name="robots" content="noindex,nofollow"/>
+    <meta name="robots" content="noindex,nofollow" />
 
     <script type="text/javascript">
         var app = null;
@@ -51,39 +52,39 @@
         }, 1000);
         // Construct app and load initial path
         $(function () {
-            app = new haste('hastebin', {twitter: false});
-            handlePop({target: window});
+            app = new haste('hastebin', { twitter: false });
+            handlePop({ target: window });
         });
     </script>
 
 </head>
 
 <body>
-<ul id="messages"></ul>
+    <ul id="messages"></ul>
 
-<div id="key">
-    <div id="pointer" style="display:none;"></div>
-    <div id="box1">
-        <!--suppress HtmlUnknownTarget -->
-        <a href="/about.md" class="logo"></a>
+    <div id="key">
+        <div id="pointer" style="display:none;"></div>
+        <div id="box1">
+            <!--suppress HtmlUnknownTarget -->
+            <a href="/about.md" class="logo"></a>
+        </div>
+        <div id="box2">
+            <button class="save function button-picture">Save</button>
+            <button class="new function button-picture">New</button>
+            <button class="duplicate function button-picture">Duplicate & Edit</button>
+            <button class="raw function button-picture">Just Text</button>
+            <button class="twitter function button-picture">Twitter</button>
+        </div>
+        <div id="box3" style="display:none;">
+            <div class="label"></div>
+            <div class="shortcut"></div>
+        </div>
     </div>
-    <div id="box2">
-        <button class="save function button-picture">Save</button>
-        <button class="new function button-picture">New</button>
-        <button class="duplicate function button-picture">Duplicate & Edit</button>
-        <button class="raw function button-picture">Just Text</button>
-        <button class="twitter function button-picture">Twitter</button>
-    </div>
-    <div id="box3" style="display:none;">
-        <div class="label"></div>
-        <div class="shortcut"></div>
-    </div>
-</div>
 
-<div id="linenos"></div>
-<pre id="box" style="display:none;" class="hljs" tabindex="0"><code></code></pre>
-<!--suppress HtmlFormInputWithoutLabel -->
-<textarea spellcheck="false" style="display:none;"></textarea>
+    <div id="linenos"></div>
+    <pre id="box" style="display:none;" class="hljs" tabindex="0"><code></code></pre>
+    <!--suppress HtmlFormInputWithoutLabel -->
+    <textarea spellcheck="false" style="display:none;"></textarea>
 
 </body>
 
