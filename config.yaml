@@ -1,0 +1,21 @@
+host: "0.0.0.0"
+port: 7777
+key_length: 10
+max_length: 4000000
+static_max_age: 3
+expiration: 0
+recompress_static_assets: false
+key_generator: "phonetic"
+
+storage:
+  type: "file"
+  file_path: "./test"
+
+documents:
+  - key: "about.md"
+    path: "./about.md"
+
+logging:
+  level: "info"
+  type: "text"
+  colorize: true
