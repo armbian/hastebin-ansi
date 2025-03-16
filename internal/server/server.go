@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/armbian/ansi-hastebin/config"
@@ -67,28 +68,27 @@ func (s *Server) RegisterRoutes() {
 
 	// Register static files
 	static := os.DirFS("static")
-	s.mux.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id := chi.URLParam(r, "id")
-		if file, err := static.Open(id); err == nil {
-			defer file.Close()
-			io.Copy(w, file)
+	fileServer := http.FileServer(http.FS(static))
+
+	s.mux.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if _, err := static.Open(path); err == nil {
+			fileServer.ServeHTTP(w, r)
 			return
 		}
 
+		// If file does not exist, serve index.html
 		index, err := static.Open("index.html")
 		if err != nil {
 			http.Error(w, "Not found", http.StatusNotFound)
 			return
 		}
-
 		defer index.Close()
 
-		io.Copy(w, index)
-	})
-
-	fileServer := http.StripPrefix("/", http.FileServer(http.FS(static)))
-	s.mux.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		fileServer.ServeHTTP(w, r)
+		if _, err := io.Copy(w, index); err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
 	})
 }
 
