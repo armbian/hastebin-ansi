@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/bradfitz/gomemcache/memcache"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type MemcachedStorage struct {
@@ -17,7 +17,7 @@ func NewMemcachedStorage(host string, port int, expiration int) *MemcachedStorag
 
 	// Check if connection is established
 	if err := client.Ping(); err != nil {
-		logrus.Fatalf("Failed to connect to Memcached: %v", err)
+		log.Error().Err(err).Msg("Failed to connect to Memcached")
 	}
 
 	return &MemcachedStorage{client: client, expiration: expiration}

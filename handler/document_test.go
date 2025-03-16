@@ -10,7 +10,8 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 )
 
@@ -176,7 +177,7 @@ func BenchmarkHandlePost(b *testing.B) {
 	handler.RegisterRoutes(router)
 
 	// Disable logging for benchmark
-	logrus.StandardLogger().Level = logrus.FatalLevel
+	log.Logger = log.Level(zerolog.Disabled)
 
 	body := bytes.NewBufferString("benchmark content")
 	for i := 0; i < b.N; i++ {
@@ -190,7 +191,7 @@ func BenchmarkHandleGet(b *testing.B) {
 	handler.RegisterRoutes(router)
 
 	// Disable logging for benchmark
-	logrus.StandardLogger().Level = logrus.FatalLevel
+	log.Logger = log.Level(zerolog.Disabled)
 
 	// Add document
 	handler.Store.Set("test123", "benchmark data", false)
@@ -206,7 +207,7 @@ func BenchmarkHandlePutLog(b *testing.B) {
 	handler.RegisterRoutes(router)
 
 	// Disable logging for benchmark
-	logrus.StandardLogger().Level = logrus.FatalLevel
+	log.Logger = log.Level(zerolog.Disabled)
 
 	body := bytes.NewBufferString("benchmark log entry")
 	for i := 0; i < b.N; i++ {
@@ -220,7 +221,7 @@ func BenchmarkHandleRawGet(b *testing.B) {
 	handler.RegisterRoutes(router)
 
 	// Disable logging for benchmark
-	logrus.StandardLogger().Level = logrus.FatalLevel
+	log.Logger = log.Level(zerolog.Disabled)
 
 	// Add document
 	handler.Store.Set("test123", "benchmark data", false)

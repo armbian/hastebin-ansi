@@ -6,7 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -45,12 +46,12 @@ func NewMongoDBStorage(host string, port int, username string, password string, 
 
 	client, err := mongo.Connect(options.Client().ApplyURI(dsn))
 	if err != nil {
-		logrus.Fatalf("Failed to connect to MongoDB: %v", err)
+		log.Fatal().Err(err).Msg("Failed to connect to MongoDB")
 	}
 
 	// Check if connection is established
 	if err := client.Ping(ctx, nil); err != nil {
-		logrus.Fatalf("Failed to connect to MongoDB: %v", err)
+		log.Fatal().Err(err).Msg("Failed to connect to MongoDB")
 	}
 
 	db := client.Database(database)
