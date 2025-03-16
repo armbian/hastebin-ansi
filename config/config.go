@@ -4,7 +4,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -79,7 +78,7 @@ type Config struct {
 	// Expiration is the maximum lifetime of paste entry
 	// 0 means there will be no expiration.
 	// "file" and "s3" storages don't support expiration control.
-	Expiration time.Duration `yaml:"expiration"`
+	Expiration int `yaml:"expiration"`
 
 	// RecompressStaticAssets is a flag to recompress static assets by default
 	RecompressStaticAssets bool `yaml:"recompress_static_assets"`

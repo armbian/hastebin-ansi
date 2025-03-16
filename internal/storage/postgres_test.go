@@ -67,4 +67,6 @@ func TestPostgresStorage(t *testing.T) {
 	val, err = store.Get("key1", false)
 	require.NoError(t, err)
 	require.Empty(t, val)
+
+	require.NoError(t, store.Close())
 }

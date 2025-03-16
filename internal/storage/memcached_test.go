@@ -65,6 +65,8 @@ func TestMemcachedStorage(t *testing.T) {
 
 	_, err = store.Get("testKey2", false)
 	require.ErrorIs(t, memcache.ErrCacheMiss, err) // Should not exist
+
+	require.NoError(t, store.Close())
 }
 
 func TestMemcachedStorageSkipExpiration(t *testing.T) {
@@ -88,4 +90,6 @@ func TestMemcachedStorageSkipExpiration(t *testing.T) {
 	val, err = store.Get("persistentKey", true)
 	require.NoError(t, err)
 	require.Equal(t, "persistentValue", val)
+
+	require.NoError(t, store.Close())
 }

@@ -86,3 +86,8 @@ func (s *PostgresStorage) Get(key string, skip_expiration bool) (string, error) 
 
 	return value, nil
 }
+
+func (s *PostgresStorage) Close() error {
+	s.pool.Close()
+	return nil
+}

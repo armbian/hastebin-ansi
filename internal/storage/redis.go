@@ -60,3 +60,7 @@ func (s *RedisStorage) Get(key string, skip_expiration bool) (string, error) {
 
 	return res, nil
 }
+
+func (s *RedisStorage) Close() error {
+	return s.client.Close()
+}

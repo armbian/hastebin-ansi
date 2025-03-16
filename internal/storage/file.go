@@ -37,6 +37,8 @@ func (fs *FileStorage) Set(key string, value string, skip_expiration bool) error
 		return err
 	}
 
+	defer file.Close()
+
 	_, err = file.WriteString(value)
 	return err
 }
@@ -49,4 +51,8 @@ func (fs *FileStorage) Get(key string, skip_expiration bool) (string, error) {
 	}
 
 	return string(file), nil
+}
+
+func (fs *FileStorage) Close() error {
+	return nil
 }

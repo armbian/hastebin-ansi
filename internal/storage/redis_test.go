@@ -85,6 +85,8 @@ func TestRedisStorage_SetAndGet(t *testing.T) {
 	ttlAfterGetNoExpire, err := storage.client.TTL(context.Background(), keyNoExpire).Result()
 	require.NoError(t, err)
 	require.Equal(t, -1*time.Nanosecond, ttlAfterGetNoExpire) // -1ns means no expiration
+
+	require.NoError(t, storage.Close())
 }
 
 func TestRedisStorage_GetNonExistentKey(t *testing.T) {
@@ -97,4 +99,6 @@ func TestRedisStorage_GetNonExistentKey(t *testing.T) {
 	_, err := storage.Get("nonExistentKey", false)
 	require.Error(t, err)
 	require.Equal(t, redis.Nil, err)
+
+	require.NoError(t, storage.Close())
 }

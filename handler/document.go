@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/armbian/ansi-hastebin/keygenerator"
-	"github.com/armbian/ansi-hastebin/storage"
+	"github.com/armbian/ansi-hastebin/internal/keygenerator"
+	"github.com/armbian/ansi-hastebin/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/sirupsen/logrus"
 )
@@ -22,13 +22,26 @@ type DocumentHandler struct {
 }
 
 func NewDocumentHandler(keyLength, maxLength int, store storage.Storage, keyGenerator keygenerator.KeyGenerator) *DocumentHandler {
-	keyLength = 10
 	return &DocumentHandler{
 		KeyLength:    keyLength,
 		MaxLength:    maxLength,
 		Store:        store,
 		KeyGenerator: keyGenerator,
 	}
+}
+
+// RegisterRoutes registers document routes
+func (h *DocumentHandler) RegisterRoutes(r chi.Router) {
+	r.Get("/raw/{id}", h.HandleRawGet)
+	r.Head("/raw/{id}", h.HandleRawGet)
+
+	r.Post("/log", h.HandlePutLog)
+	r.Put("/log", h.HandlePutLog)
+
+	r.Post("/documents", h.HandlePost)
+
+	r.Get("/documents/{id}", h.HandleGet)
+	r.Head("/documents/{id}", h.HandleGet)
 }
 
 // Handle retrieving a document
