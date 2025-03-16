@@ -35,6 +35,8 @@ func TestFileStorage(t *testing.T) {
 
 	_, err = store.Get("testKey2", false)
 	require.True(t, os.IsNotExist(err))
+
+	require.NoError(t, store.Close())
 }
 
 func TestFileStorageSkipExpiration(t *testing.T) {
@@ -52,4 +54,6 @@ func TestFileStorageSkipExpiration(t *testing.T) {
 	val, err := store.Get("persistentKey", true)
 	require.NoError(t, err)
 	require.Equal(t, "persistentValue", val)
+
+	require.NoError(t, store.Close())
 }

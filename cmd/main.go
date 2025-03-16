@@ -1,56 +1,42 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fmt"
 	"io"
-	"net/http"
 	"os"
-	"strconv"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/armbian/ansi-hastebin/config"
-	"github.com/armbian/ansi-hastebin/handler"
-	"github.com/armbian/ansi-hastebin/keygenerator"
-	"github.com/armbian/ansi-hastebin/storage"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/armbian/ansi-hastebin/internal/keygenerator"
+	"github.com/armbian/ansi-hastebin/internal/server"
+	"github.com/armbian/ansi-hastebin/internal/storage"
 	"github.com/sirupsen/logrus"
 )
 
-func main() {
-	// Creater router instance
-	r := chi.NewRouter()
-
-	// Add several middlewares
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-
-	// Check if config argument sent
-	var configLocation string
-	flag.StringVar(&configLocation, "config", "", "Pass config yaml")
-	flag.Parse()
-
-	// Parse config fields
-	cfg := config.NewConfig(configLocation)
+func handleConfig(location string) (*config.Config, storage.Storage, keygenerator.KeyGenerator) {
+	cfg := config.NewConfig(location)
+	exp := time.Duration(cfg.Expiration)
 
 	var pasteStorage storage.Storage
 	switch cfg.Storage.Type {
 	case "file":
-		pasteStorage = storage.NewFileStorage(cfg.Storage.FilePath, cfg.Expiration)
+		pasteStorage = storage.NewFileStorage(cfg.Storage.FilePath, exp)
 	case "redis":
-		pasteStorage = storage.NewRedisStorage(cfg.Storage.Host, cfg.Storage.Port, cfg.Storage.Username, cfg.Storage.Password, cfg.Expiration)
+		pasteStorage = storage.NewRedisStorage(cfg.Storage.Host, cfg.Storage.Port, cfg.Storage.Username, cfg.Storage.Password, exp)
 	case "memcached":
 		pasteStorage = storage.NewMemcachedStorage(cfg.Storage.Host, cfg.Storage.Port, int(cfg.Expiration))
 	case "mongodb":
-		pasteStorage = storage.NewMongoDBStorage(cfg.Storage.Host, cfg.Storage.Port, cfg.Storage.Username, cfg.Storage.Password, cfg.Storage.Database, cfg.Expiration)
+		pasteStorage = storage.NewMongoDBStorage(cfg.Storage.Host, cfg.Storage.Port, cfg.Storage.Username, cfg.Storage.Password, cfg.Storage.Database, exp)
 	case "postgres":
 		pasteStorage = storage.NewPostgresStorage(cfg.Storage.Host, cfg.Storage.Port, cfg.Storage.Username, cfg.Storage.Password, cfg.Storage.Database, int(cfg.Expiration))
 	case "s3":
 		pasteStorage = storage.NewS3Storage(cfg.Storage.Host, cfg.Storage.Port, cfg.Storage.Username, cfg.Storage.Password, cfg.Storage.AWSRegion, cfg.Storage.Bucket)
 	default:
 		logrus.Fatalf("Unknown storage type: %s", cfg.Storage.Type)
-		return
+		return nil, nil, nil
 	}
 
 	// Set static documents from config
@@ -64,10 +50,11 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).WithField("path", doc.Path).Fatal("Failed to read document")
 		}
-
 		file.Close()
 
-		pasteStorage.Set(doc.Key, string(content), false)
+		if err := pasteStorage.Set(doc.Key, string(content), false); err != nil {
+			logrus.WithError(err).WithField("key", doc.Key).Fatal("Failed to set document")
+		}
 	}
 
 	var keyGenerator keygenerator.KeyGenerator
@@ -79,54 +66,33 @@ func main() {
 		keyGenerator = keygenerator.NewPhoneticKeyGenerator()
 	default:
 		logrus.Fatalf("Unknown key generator: %s", cfg.KeyGenerator)
-		return
+		return nil, nil, nil
 	}
 
-	// Add document handler
-	document_handler := handler.NewDocumentHandler(cfg.KeyLength, cfg.MaxLength, pasteStorage, keyGenerator)
+	return cfg, pasteStorage, keyGenerator
+}
 
-	// Add prometheus metrics
-	r.Get("/metrics", promhttp.Handler().ServeHTTP)
+func main() {
+	// Parse command line arguments
+	var configFile string
+	flag.StringVar(&configFile, "config", "config.yaml", "Configuration file")
+	flag.Parse()
 
-	// Add document routes
-	r.Get("/raw/{id}", document_handler.HandleRawGet)
-	r.Head("/raw/{id}", document_handler.HandleRawGet)
+	srv := server.NewServer(handleConfig(configFile))
+	srv.RegisterRoutes()
 
-	r.Post("/log", document_handler.HandlePutLog)
-	r.Put("/log", document_handler.HandlePutLog)
+	// Start the server in a separate goroutine
+	go func() {
+		srv.Start()
+	}()
 
-	r.Post("/documents", document_handler.HandlePost)
+	// Wait for signal to stop the server
+	stopCh := make(chan os.Signal, 1)
+	signal.Notify(stopCh, syscall.SIGTERM, syscall.SIGINT)
+	<-stopCh
 
-	r.Get("/documents/{id}", document_handler.HandleGet)
-	r.Head("/documents/{id}", document_handler.HandleGet)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	static := os.DirFS("static")
-	r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id := chi.URLParam(r, "id")
-		if file, err := static.Open(id); err == nil {
-			defer file.Close()
-			io.Copy(w, file)
-			return
-		}
-
-		index, err := static.Open("index.html")
-		if err != nil {
-			http.Error(w, "Not found", http.StatusNotFound)
-			return
-		}
-
-		defer index.Close()
-
-		io.Copy(w, index)
-	})
-
-	fileServer := http.StripPrefix("/", http.FileServer(http.FS(static)))
-	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		fileServer.ServeHTTP(w, r)
-	})
-
-	if err := http.ListenAndServe(cfg.Host+":"+strconv.Itoa(cfg.Port), r); err != nil {
-		fmt.Printf("Failed to start server: %v\n", err)
-		return
-	}
+	srv.Shutdown(ctx)
 }

@@ -142,3 +142,7 @@ func (s *MongoDBStorage) Get(key string, skip_expiration bool) (string, error) {
 
 	return string(i.Value), nil
 }
+
+func (s *MongoDBStorage) Close() error {
+	return s.db.Client().Disconnect(context.Background())
+}

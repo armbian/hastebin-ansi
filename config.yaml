@@ -12,7 +12,7 @@ storage:
   file_path: "./test"
 
 documents:
-  - key: "about.md"
+  - key: "about"
     path: "./about.md"
 
 logging:

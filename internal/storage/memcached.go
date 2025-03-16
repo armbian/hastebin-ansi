@@ -53,3 +53,7 @@ func (s *MemcachedStorage) Get(key string, skip_expiration bool) (string, error)
 
 	return string(item.Value), nil
 }
+
+func (s *MemcachedStorage) Close() error {
+	return s.client.Close()
+}

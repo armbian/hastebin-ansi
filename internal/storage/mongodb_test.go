@@ -74,6 +74,8 @@ func TestMongoDBStorage(t *testing.T) {
 	val, err = store.Get("testKey2", false)
 	require.Equal(t, "", val)
 	require.ErrorIs(t, mongo.ErrNoDocuments, err)
+
+	require.NoError(t, store.Close())
 }
 
 func TestMongoDBStorageSkipExpiration(t *testing.T) {
@@ -97,4 +99,6 @@ func TestMongoDBStorageSkipExpiration(t *testing.T) {
 	val, err = store.Get("persistentKey", true)
 	require.NoError(t, err)
 	require.Equal(t, "persistentValue", val)
+
+	require.NoError(t, store.Close())
 }

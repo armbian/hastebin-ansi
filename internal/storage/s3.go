@@ -94,3 +94,7 @@ func (s *S3Storage) Get(key string, skip_expiration bool) (string, error) {
 
 	return string(buf.Bytes()), err
 }
+
+func (s *S3Storage) Close() error {
+	return nil
+}
