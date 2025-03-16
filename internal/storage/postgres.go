@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 const setSQLQuery = "INSERT INTO entries (key, value, expiration) VALUES ($1, $2, $3) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, expiration = EXCLUDED.expiration"
@@ -25,18 +25,18 @@ func NewPostgresStorage(host string, port int, username string, passowrd string,
 	dsn := "postgres://" + username + ":" + passowrd + "@" + host + ":" + strconv.Itoa(port) + "/" + database
 	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
-		logrus.Fatalf("Failed to connect to PostgreSQL: %v", err)
+		log.Fatal().Err(err).Msg("Failed to connect to PostgreSQL")
 	}
 
 	// Check if connection is established
 	if err := pool.Ping(context.Background()); err != nil {
-		logrus.Fatalf("Failed to connect to PostgreSQL: %v", err)
+		log.Fatal().Err(err).Msg("Failed to connect to PostgreSQL")
 	}
 
 	// Create table if not exists
 	_, err = pool.Exec(context.Background(), "CREATE TABLE IF NOT EXISTS entries (id SERIAL PRIMARY KEY, key VARCHAR(255) NOT NULL UNIQUE, value TEXT, expiration BIGINT)")
 	if err != nil {
-		logrus.Fatalf("Failed to create table: %v", err)
+		log.Fatal().Err(err).Msg("Failed to create table")
 	}
 
 	return &PostgresStorage{pool: pool, expiration: expiration}

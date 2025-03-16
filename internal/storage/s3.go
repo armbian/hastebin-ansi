@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type S3Storage struct {
@@ -34,7 +34,7 @@ func NewS3Storage(host string, port int, username string, password string, regio
 	)
 
 	if err != nil {
-		logrus.Fatalf("unable to load SDK config, %v", err)
+		log.Fatal().Err(err).Msg("Failed to load SDK config")
 	}
 
 	svc := s3.NewFromConfig(awscfg, func(o *s3.Options) {
@@ -48,7 +48,7 @@ func NewS3Storage(host string, port int, username string, password string, regio
 	// Check if connection is established
 	_, err = svc.ListBuckets(context.Background(), &s3.ListBucketsInput{})
 	if err != nil {
-		logrus.Fatalf("Failed to connect to S3: %v", err)
+		log.Fatal().Err(err).Msg("Failed to connect to S3")
 	}
 
 	// Create bucket if not exists
@@ -56,7 +56,7 @@ func NewS3Storage(host string, port int, username string, password string, regio
 		Bucket: &bucket,
 	})
 	if err != nil {
-		logrus.Fatalf("Failed to create bucket: %v", err)
+		log.Fatal().Err(err).Msg("Failed to create bucket")
 	}
 
 	return &S3Storage{svc: svc, downloader: downloader, uploader: uploader, bucket: bucket}

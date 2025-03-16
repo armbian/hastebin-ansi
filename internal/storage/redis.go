@@ -5,8 +5,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
 )
 
 type RedisStorage struct {
@@ -26,7 +27,7 @@ func NewRedisStorage(host string, port int, username string, password string, ex
 
 	// Check if connection is established with 5s timeout
 	if status := client.Ping(ctx); status.Err() != nil {
-		logrus.Fatalf("Failed to connect to Redis: %v", status.Err())
+		log.Fatal().Err(status.Err()).Msg("Failed to connect to Redis")
 	}
 
 	return &RedisStorage{client: client, expiration: expiration}

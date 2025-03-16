@@ -10,7 +10,7 @@ import (
 	"github.com/armbian/ansi-hastebin/internal/keygenerator"
 	"github.com/armbian/ansi-hastebin/internal/storage"
 	"github.com/go-chi/chi/v5"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 // DocumentHandler manages document operations
@@ -50,7 +50,7 @@ func (h *DocumentHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	data, err := h.Store.Get(key, false)
 
 	if data != "" && err == nil {
-		logrus.WithField("key", key).Info("Retrieved document")
+		log.Info().Str("key", key).Msg("Retrieved document")
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodHead {
 			w.WriteHeader(http.StatusOK)
@@ -58,18 +58,18 @@ func (h *DocumentHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		}
 		json.NewEncoder(w).Encode(map[string]string{"data": data, "key": key})
 	} else {
-		logrus.WithField("key", key).Warn("Document not found")
+		log.Info().Str("key", key).Msg("Document not found")
 		http.Error(w, `{"message": "Document not found."}`, http.StatusNotFound)
 	}
 }
 
 // Handle retrieving raw document
 func (h *DocumentHandler) HandleRawGet(w http.ResponseWriter, r *http.Request) {
-
 	key := strings.Split(chi.URLParam(r, "id"), ".")[0]
 	data, err := h.Store.Get(key, false)
+
 	if data != "" && err == nil {
-		logrus.WithField("key", key).Info("Retrieved raw document")
+		log.Info().Str("key", key).Msg("Retrieved raw document")
 		w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 		if r.Method == http.MethodHead {
 			w.WriteHeader(http.StatusOK)
@@ -77,7 +77,7 @@ func (h *DocumentHandler) HandleRawGet(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Write([]byte(data))
 	} else {
-		logrus.WithField("key", key).Warn("Raw document not found")
+		log.Info().Str("key", key).Msg("Raw document not found")
 		http.Error(w, `{"message": "Document not found."}`, http.StatusNotFound)
 	}
 }
@@ -91,7 +91,7 @@ func (h *DocumentHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.MaxLength > 0 && buffer.Len() > h.MaxLength {
-		logrus.Warn("Document exceeds max length")
+		log.Info().Str("key", "").Msg("Document exceeds max length")
 		http.Error(w, `{"message": "Document exceeds maximum length."}`, http.StatusBadRequest)
 		return
 	}
@@ -99,7 +99,7 @@ func (h *DocumentHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	key := h.KeyGenerator.Generate(h.KeyLength)
 	h.Store.Set(key, buffer.String(), false)
 
-	logrus.WithField("key", key).Info("Added document")
+	log.Info().Str("key", key).Msg("Added document")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"key": key})
 }
@@ -113,7 +113,7 @@ func (h *DocumentHandler) HandlePutLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.MaxLength > 0 && buffer.Len() > h.MaxLength {
-		logrus.Warn("Document exceeds max length")
+		log.Info().Str("key", "").Msg("Document exceeds max length")
 		http.Error(w, `{"message": "Document exceeds maximum length."}`, http.StatusBadRequest)
 		return
 	}
@@ -121,7 +121,7 @@ func (h *DocumentHandler) HandlePutLog(w http.ResponseWriter, r *http.Request) {
 	key := h.KeyGenerator.Generate(h.KeyLength)
 	h.Store.Set(key, buffer.String(), false)
 
-	logrus.WithField("key", key).Info("Added document with log link")
+	log.Info().Str("key", key).Msg("Added document with log link")
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprintf(w, "\nhttps://%s/%s\n\n", r.Host, key)
 }
@@ -136,7 +136,7 @@ func (h *DocumentHandler) readBody(r *http.Request, buffer *strings.Builder) err
 	} else {
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
-			logrus.Error("Connection error: ", err)
+			log.Error().Err(err).Msg("Error reading request body")
 			return err
 		}
 		buffer.WriteString(string(data))
