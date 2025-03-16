@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/armbian/ansi-hastebin/config"
 	"github.com/armbian/ansi-hastebin/handler"
@@ -13,8 +14,9 @@ import (
 	"github.com/armbian/ansi-hastebin/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type Server struct {
@@ -45,6 +47,11 @@ func (s *Server) RegisterRoutes() {
 	// Register middlewares
 	s.mux.Use(middleware.Logger)
 	s.mux.Use(middleware.Recoverer)
+
+	// Rate limiter
+	if s.config.RateLimiting.Enable {
+		s.mux.Use(httprate.LimitByRealIP(s.config.RateLimiting.Limit, time.Duration(s.config.RateLimiting.Window)*time.Second))
+	}
 
 	// Register promhttp middleware
 	s.mux.Get("/metrics", promhttp.Handler().ServeHTTP)
@@ -86,21 +93,21 @@ func (s *Server) RegisterRoutes() {
 }
 
 func (s *Server) Start() {
-	logrus.Infof("Starting server on %s", s.server.Addr)
+	log.Info().Str("host", s.config.Host).Int("port", s.config.Port).Msg("Starting server")
 
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		logrus.WithError(err).Fatal("Failed to start server")
+		log.Fatal().Err(err).Msg("Failed to start server")
 	}
 }
 
 func (s *Server) Shutdown(ctx context.Context) {
-	logrus.Info("Gracefully shutting down server")
+	log.Info().Msg("Gracefully shutting down server")
 
 	if err := s.storage.Close(); err != nil {
-		logrus.WithError(err).Error("Failed to close storage")
+		log.Error().Err(err).Msg("Failed to close storage")
 	}
 
 	if err := s.server.Shutdown(ctx); err != nil {
-		logrus.WithError(err).Error("Failed to shutdown server")
+		log.Error().Err(err).Msg("Failed to shutdown server")
 	}
 }

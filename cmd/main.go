@@ -13,7 +13,8 @@ import (
 	"github.com/armbian/ansi-hastebin/internal/keygenerator"
 	"github.com/armbian/ansi-hastebin/internal/server"
 	"github.com/armbian/ansi-hastebin/internal/storage"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func handleConfig(location string) (*config.Config, storage.Storage, keygenerator.KeyGenerator) {
@@ -35,7 +36,7 @@ func handleConfig(location string) (*config.Config, storage.Storage, keygenerato
 	case "s3":
 		pasteStorage = storage.NewS3Storage(cfg.Storage.Host, cfg.Storage.Port, cfg.Storage.Username, cfg.Storage.Password, cfg.Storage.AWSRegion, cfg.Storage.Bucket)
 	default:
-		logrus.Fatalf("Unknown storage type: %s", cfg.Storage.Type)
+		log.Fatal().Str("storage_type", cfg.Storage.Type).Msg("Unknown storage type")
 		return nil, nil, nil
 	}
 
@@ -43,17 +44,17 @@ func handleConfig(location string) (*config.Config, storage.Storage, keygenerato
 	for _, doc := range cfg.Documents {
 		file, err := os.OpenFile(doc.Path, os.O_RDONLY, 0644)
 		if err != nil {
-			logrus.WithError(err).WithField("path", doc.Path).Fatal("Failed to open document")
+			log.Fatal().Err(err).Str("path", doc.Path).Msg("Failed to open document")
 		}
 
 		content, err := io.ReadAll(file)
 		if err != nil {
-			logrus.WithError(err).WithField("path", doc.Path).Fatal("Failed to read document")
+			log.Fatal().Err(err).Str("path", doc.Path).Msg("Failed to read document")
 		}
 		file.Close()
 
 		if err := pasteStorage.Set(doc.Key, string(content), false); err != nil {
-			logrus.WithError(err).WithField("key", doc.Key).Fatal("Failed to set document")
+			log.Fatal().Err(err).Str("key", doc.Key).Msg("Failed to set document")
 		}
 	}
 
@@ -65,8 +66,19 @@ func handleConfig(location string) (*config.Config, storage.Storage, keygenerato
 	case "phonetic":
 		keyGenerator = keygenerator.NewPhoneticKeyGenerator()
 	default:
-		logrus.Fatalf("Unknown key generator: %s", cfg.KeyGenerator)
+		log.Fatal().Str("key_generator", cfg.KeyGenerator).Msg("Unknown key generator")
 		return nil, nil, nil
+	}
+
+	// Adjust logger
+	logLevel, err := zerolog.ParseLevel(cfg.Logging.Level)
+	if err != nil {
+		log.Fatal().Err(err).Str("level", cfg.Logging.Level).Msg("Failed to parse log level")
+	}
+	log.Logger = log.Level(logLevel)
+
+	if cfg.Logging.Colorize {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 	}
 
 	return cfg, pasteStorage, keyGenerator

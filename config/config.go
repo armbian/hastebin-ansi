@@ -5,14 +5,27 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
 type LoggingConfig struct {
-	Level    string `yaml:"level"`
-	Type     string `yaml:"type"`
-	Colorize bool   `yaml:"colorize"`
+	// Level is the logging level to use
+	Level string `yaml:"level"`
+
+	// Colorize is a flag to enable colorized output
+	Colorize bool `yaml:"colorize"`
+}
+
+type RateLimitingConfig struct {
+	// Enable is a flag to enable rate limiting
+	Enable bool `yaml:"enable"`
+
+	// Limit is the maximum number of requests
+	Limit int `yaml:"limit"`
+
+	// Window is the time window to limit requests
+	Window int `yaml:"window"`
 }
 
 type StorageConfig struct {
@@ -94,6 +107,9 @@ type Config struct {
 	// Logging is the logging configuration
 	Logging LoggingConfig `yaml:"logging"`
 
+	// RateLimiting is the rate limiting configuration
+	RateLimiting RateLimitingConfig `yaml:"rate_limiting"`
+
 	// Documents is the list of documents to load statically
 	Documents []DocumentConfig `yaml:"documents"`
 }
@@ -112,7 +128,6 @@ var DefaultConfig = &Config{
 	},
 	Logging: LoggingConfig{
 		Level: "info",
-		Type:  "text",
 	},
 	Documents: []DocumentConfig{
 		{
@@ -129,12 +144,12 @@ func NewConfig(configFile string) *Config {
 	// Read the configuration file
 	data, err := os.ReadFile(configFile)
 	if err != nil && !os.IsNotExist(err) {
-		logrus.WithError(err).Fatal("Failed to read configuration file")
+		log.Fatal().Err(err).Msg("Failed to read configuration file")
 	}
 
 	// Unmarshal the configuration file
 	if err := yaml.Unmarshal(data, cfg); err != nil {
-		logrus.WithError(err).Fatal("Failed to unmarshal configuration file")
+		log.Fatal().Err(err).Msg("Failed to unmarshal configuration file")
 	}
 
 	// Override with environment variables
@@ -145,7 +160,7 @@ func NewConfig(configFile string) *Config {
 	if port := os.Getenv("PORT"); port != "" {
 		portInt, err := strconv.Atoi(port)
 		if err != nil {
-			logrus.WithError(err).Fatal("Failed to parse PORT environment variable")
+			log.Fatal().Err(err).Msg("Failed to parse PORT environment variable")
 		}
 		cfg.Port = portInt
 	}
@@ -153,7 +168,7 @@ func NewConfig(configFile string) *Config {
 	if keyLength := os.Getenv("KEY_LENGTH"); keyLength != "" {
 		keyLengthInt, err := strconv.Atoi(keyLength)
 		if err != nil {
-			logrus.WithError(err).Fatal("Failed to parse KEY_LENGTH environment variable")
+			log.Fatal().Err(err).Msg("Failed to parse KEY_LENGTH environment variable")
 		}
 		cfg.KeyLength = keyLengthInt
 	}
@@ -161,7 +176,7 @@ func NewConfig(configFile string) *Config {
 	if maxLength := os.Getenv("MAX_LENGTH"); maxLength != "" {
 		maxLengthInt, err := strconv.Atoi(maxLength)
 		if err != nil {
-			logrus.WithError(err).Fatal("Failed to parse MAX_LENGTH environment variable")
+			log.Fatal().Err(err).Msg("Failed to parse MAX_LENGTH environment variable")
 		}
 		cfg.MaxLength = maxLengthInt
 	}
@@ -169,7 +184,7 @@ func NewConfig(configFile string) *Config {
 	if staticMaxAge := os.Getenv("STATIC_MAX_AGE"); staticMaxAge != "" {
 		staticMaxAgeInt, err := strconv.Atoi(staticMaxAge)
 		if err != nil {
-			logrus.WithError(err).Fatal("Failed to parse STATIC_MAX_AGE environment variable")
+			log.Fatal().Err(err).Msg("Failed to parse STATIC_MAX_AGE environment variable")
 		}
 		cfg.StaticMaxAge = staticMaxAgeInt
 	}
@@ -177,7 +192,7 @@ func NewConfig(configFile string) *Config {
 	if recompressStaticAssets := os.Getenv("RECOMPRESS_STATIC_ASSETS"); recompressStaticAssets != "" {
 		recompressStaticAssetsBool, err := strconv.ParseBool(recompressStaticAssets)
 		if err != nil {
-			logrus.WithError(err).Fatal("Failed to parse RECOMPRESS_STATIC_ASSETS environment variable")
+			log.Fatal().Err(err).Msg("Failed to parse RECOMPRESS_STATIC_ASSETS environment variable")
 		}
 		cfg.RecompressStaticAssets = recompressStaticAssetsBool
 	}
@@ -197,7 +212,7 @@ func NewConfig(configFile string) *Config {
 	if storagePort := os.Getenv("STORAGE_PORT"); storagePort != "" {
 		storagePortInt, err := strconv.Atoi(storagePort)
 		if err != nil {
-			logrus.WithError(err).Fatal("Failed to parse STORAGE_PORT environment variable")
+			log.Fatal().Err(err).Msg("Failed to parse STORAGE_PORT environment variable")
 		}
 		cfg.Storage.Port = storagePortInt
 	}
@@ -230,16 +245,39 @@ func NewConfig(configFile string) *Config {
 		cfg.Logging.Level = loggingLevel
 	}
 
-	if loggingType := os.Getenv("LOGGING_TYPE"); loggingType != "" {
-		cfg.Logging.Type = loggingType
-	}
-
 	if loggingColorize := os.Getenv("LOGGING_COLORIZE"); loggingColorize != "" {
 		loggingColorizeBool, err := strconv.ParseBool(loggingColorize)
 		if err != nil {
-			logrus.WithError(err).Fatal("Failed to parse LOGGING_COLORIZE environment variable")
+			log.Fatal().Err(err).Msg("Failed to parse LOGGING_COLORIZE environment variable")
 		}
 		cfg.Logging.Colorize = loggingColorizeBool
+	}
+
+	if rateLimitingEnable := os.Getenv("RATE_LIMITING_ENABLE"); rateLimitingEnable != "" {
+		rateLimitingEnableBool, err := strconv.ParseBool(rateLimitingEnable)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to parse RATE_LIMITING_ENABLE environment variable")
+		}
+
+		cfg.RateLimiting.Enable = rateLimitingEnableBool
+	}
+
+	if rateLimitingLimit := os.Getenv("RATE_LIMITING_LIMIT"); rateLimitingLimit != "" {
+		rateLimitingLimitInt, err := strconv.Atoi(rateLimitingLimit)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to parse RATE_LIMITING_LIMIT environment variable")
+		}
+
+		cfg.RateLimiting.Limit = rateLimitingLimitInt
+	}
+
+	if rateLimitingWindow := os.Getenv("RATE_LIMITING_WINDOW"); rateLimitingWindow != "" {
+		rateLimitingWindowInt, err := strconv.Atoi(rateLimitingWindow)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to parse RATE_LIMITING_WINDOW environment variable")
+		}
+
+		cfg.RateLimiting.Window = rateLimitingWindowInt
 	}
 
 	// Walk environment variables for documents
@@ -290,10 +328,6 @@ func NewConfig(configFile string) *Config {
 
 	if cfg.Logging.Level == "" {
 		cfg.Logging.Level = DefaultConfig.Logging.Level
-	}
-
-	if cfg.Logging.Type == "" {
-		cfg.Logging.Type = DefaultConfig.Logging.Type
 	}
 
 	return cfg
