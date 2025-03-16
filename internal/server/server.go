@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/armbian/ansi-hastebin/handler"
 	"github.com/armbian/ansi-hastebin/internal/keygenerator"
 	"github.com/armbian/ansi-hastebin/internal/storage"
+	"github.com/armbian/ansi-hastebin/static"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
@@ -67,18 +67,17 @@ func (s *Server) RegisterRoutes() {
 	})
 
 	// Register static files
-	static := os.DirFS("static")
-	fileServer := http.FileServer(http.FS(static))
+	fileServer := http.FileServer(http.FS(static.StaticFS))
 
 	s.mux.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/")
-		if _, err := static.Open(path); err == nil {
+		if _, err := static.StaticFS.Open(path); err == nil {
 			fileServer.ServeHTTP(w, r)
 			return
 		}
 
 		// If file does not exist, serve index.html
-		index, err := static.Open("index.html")
+		index, err := static.StaticFS.Open("index.html")
 		if err != nil {
 			http.Error(w, "Not found", http.StatusNotFound)
 			return
