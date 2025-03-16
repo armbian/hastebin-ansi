@@ -97,7 +97,6 @@ func (h *DocumentHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := h.KeyGenerator.Generate(h.KeyLength)
-	fmt.Println(key)
 	h.Store.Set(key, buffer.String(), false)
 
 	logrus.WithField("key", key).Info("Added document")
