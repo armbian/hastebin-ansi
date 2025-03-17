@@ -10,7 +10,21 @@ import (
 	"github.com/armbian/ansi-hastebin/internal/keygenerator"
 	"github.com/armbian/ansi-hastebin/internal/storage"
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/zerolog/log"
+)
+
+var (
+	pasteCreated = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "hastebin_paste_created",
+		Help: "The total number of pastes created",
+	})
+
+	pasteRead = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "hastebin_paste_read",
+		Help: "The total number of pastes read",
+	})
 )
 
 // DocumentHandler manages document operations
@@ -56,6 +70,8 @@ func (h *DocumentHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+
+		pasteRead.Inc()
 		json.NewEncoder(w).Encode(map[string]string{"data": data, "key": key})
 	} else {
 		log.Info().Str("key", key).Msg("Document not found")
@@ -75,6 +91,8 @@ func (h *DocumentHandler) HandleRawGet(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+
+		pasteRead.Inc()
 		w.Write([]byte(data))
 	} else {
 		log.Info().Str("key", key).Msg("Raw document not found")
@@ -100,6 +118,8 @@ func (h *DocumentHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	h.Store.Set(key, buffer.String(), false)
 
 	log.Info().Str("key", key).Msg("Added document")
+
+	pasteCreated.Inc()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"key": key})
 }
