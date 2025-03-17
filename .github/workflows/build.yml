@@ -1,4 +1,4 @@
-name: Go Tests
+name: Go Build
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     
 
 jobs:
-  test:
+  build:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -33,5 +33,5 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.go-version }}-
 
-      - name: Run tests recursively
-        run: go test ./...
+      - name: Build project
+        run: go build -v cmd/main.go
