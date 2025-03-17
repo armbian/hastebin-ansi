@@ -3,10 +3,11 @@ services:
   haste-server:
     build: .
     environment:
-      - STORAGE_TYPE=memcached
-      - STORAGE_HOST=memcached
-      - STORAGE_PORT=11211
+      - STORAGE_TYPE=file
+      - STORAGE_FILE_PATH=/app/pastes
     ports:
       - "7777:7777"
-  memcached:
-    image: memcached:latest
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./about.md:/app/about.md
+      - "./data:/app/pastes"

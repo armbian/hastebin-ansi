@@ -13,7 +13,7 @@ storage:
 
 documents:
   - key: "about"
-    path: "./about.md"
+    path: "/app/about.md"
 
 rate_limiting:
   enable: true
