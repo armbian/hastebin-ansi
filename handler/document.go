@@ -2,13 +2,16 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/armbian/ansi-hastebin/internal/keygenerator"
 	"github.com/armbian/ansi-hastebin/internal/storage"
+	"github.com/armbian/ansi-hastebin/internal/unsafeconv"
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -16,6 +19,10 @@ import (
 )
 
 var (
+	requestBodyBufferPool = sync.Pool{
+		New: func() any { return make([]byte, 32<<10) },
+	}
+
 	pasteCreated = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "hastebin_paste_created",
 		Help: "The total number of pastes created",
@@ -60,7 +67,12 @@ func (h *DocumentHandler) RegisterRoutes(r chi.Router) {
 
 // Handle retrieving a document
 func (h *DocumentHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
-	key := strings.Split(chi.URLParam(r, "id"), ".")[0]
+	id := chi.URLParam(r, "id")
+	key := id
+	if idx := strings.IndexByte(id, '.'); idx >= 0 {
+		key = id[:idx]
+	}
+
 	data, err := h.Store.Get(key, false)
 
 	if data != "" && err == nil {
@@ -72,7 +84,13 @@ func (h *DocumentHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		}
 
 		pasteRead.Inc()
-		json.NewEncoder(w).Encode(map[string]string{"data": data, "key": key})
+		json.NewEncoder(w).Encode(struct {
+			Data string `json:"data"`
+			Key  string `json:"key"`
+		}{
+			Data: data,
+			Key:  key,
+		})
 	} else {
 		log.Info().Str("key", key).Msg("Document not found")
 		http.Error(w, `{"message": "Document not found."}`, http.StatusNotFound)
@@ -81,7 +99,12 @@ func (h *DocumentHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 
 // Handle retrieving raw document
 func (h *DocumentHandler) HandleRawGet(w http.ResponseWriter, r *http.Request) {
-	key := strings.Split(chi.URLParam(r, "id"), ".")[0]
+	id := chi.URLParam(r, "id")
+	key := id
+	if idx := strings.IndexByte(id, '.'); idx >= 0 {
+		key = id[:idx]
+	}
+
 	data, err := h.Store.Get(key, false)
 
 	if data != "" && err == nil {
@@ -93,7 +116,7 @@ func (h *DocumentHandler) HandleRawGet(w http.ResponseWriter, r *http.Request) {
 		}
 
 		pasteRead.Inc()
-		w.Write([]byte(data))
+		w.Write(unsafeconv.UnsafeBytes(data))
 	} else {
 		log.Info().Str("key", key).Msg("Raw document not found")
 		http.Error(w, `{"message": "Document not found."}`, http.StatusNotFound)
@@ -103,7 +126,12 @@ func (h *DocumentHandler) HandleRawGet(w http.ResponseWriter, r *http.Request) {
 // Handle adding a new document (POST)
 func (h *DocumentHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	var buffer strings.Builder
-	if err := h.readBody(r, &buffer); err != nil {
+	if err := h.readBody(w, r, &buffer); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			http.Error(w, `{"message": "Document exceeds maximum length."}`, http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, `{"message": "Error reading request body."}`, http.StatusInternalServerError)
 		return
 	}
@@ -115,19 +143,32 @@ func (h *DocumentHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := h.KeyGenerator.Generate(h.KeyLength)
-	h.Store.Set(key, buffer.String(), false)
+	if err := h.Store.Set(key, buffer.String(), false); err != nil {
+		log.Error().Err(err).Str("key", key).Msg("Failed to store document")
+		http.Error(w, `{"message": "Error storing document."}`, http.StatusInternalServerError)
+		return
+	}
 
 	log.Info().Str("key", key).Msg("Added document")
 
 	pasteCreated.Inc()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"key": key})
+	json.NewEncoder(w).Encode(struct {
+		Key string `json:"key"`
+	}{
+		Key: key,
+	})
 }
 
 // Handle PUT request that returns a direct link
 func (h *DocumentHandler) HandlePutLog(w http.ResponseWriter, r *http.Request) {
 	var buffer strings.Builder
-	if err := h.readBody(r, &buffer); err != nil {
+	if err := h.readBody(w, r, &buffer); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			http.Error(w, `{"message": "Document exceeds maximum length."}`, http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, `{"message": "Error reading request body."}`, http.StatusInternalServerError)
 		return
 	}
@@ -139,7 +180,11 @@ func (h *DocumentHandler) HandlePutLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := h.KeyGenerator.Generate(h.KeyLength)
-	h.Store.Set(key, buffer.String(), false)
+	if err := h.Store.Set(key, buffer.String(), false); err != nil {
+		log.Error().Err(err).Str("key", key).Msg("Failed to store document")
+		http.Error(w, `{"message": "Error storing document."}`, http.StatusInternalServerError)
+		return
+	}
 
 	log.Info().Str("key", key).Msg("Added document with log link")
 	w.Header().Set("Content-Type", "text/plain")
@@ -147,19 +192,31 @@ func (h *DocumentHandler) HandlePutLog(w http.ResponseWriter, r *http.Request) {
 }
 
 // Reads body from the request
-func (h *DocumentHandler) readBody(r *http.Request, buffer *strings.Builder) error {
+func (h *DocumentHandler) readBody(w http.ResponseWriter, r *http.Request, buffer *strings.Builder) error {
+	limit := int64(h.MaxLength)
+	if limit <= 0 {
+		limit = 10 << 20 // Default 10MB limit if not specified to avoid reading infinite body.
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+
 	if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
-		r.ParseMultipartForm(32 << 20)
-		if val := r.FormValue("data"); val != "" {
-			buffer.WriteString(val)
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			return err
+		}
+		if val, ok := r.Form["data"]; ok && len(val) > 0 {
+			buffer.WriteString(val[0])
+		}
+		if r.MultipartForm != nil {
+			defer r.MultipartForm.RemoveAll()
 		}
 	} else {
-		data, err := io.ReadAll(r.Body)
+		copyBuffer := requestBodyBufferPool.Get().([]byte)
+		defer requestBodyBufferPool.Put(copyBuffer)
+		_, err := io.CopyBuffer(buffer, r.Body, copyBuffer)
 		if err != nil {
 			log.Error().Err(err).Msg("Error reading request body")
 			return err
 		}
-		buffer.WriteString(string(data))
 	}
 	return nil
 }

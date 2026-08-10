@@ -19,7 +19,7 @@ func TestFileStorage(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	const expiration = 2 // seconds
-	store := NewFileStorage(dir, expiration)
+	store := NewFileStorage(dir, "none", expiration)
 
 	// Test Set
 	err := store.Set("testKey", "testValue", false)
@@ -44,7 +44,7 @@ func TestFileStorageSkipExpiration(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	const expiration = 2 // seconds
-	store := NewFileStorage(dir, expiration)
+	store := NewFileStorage(dir, "none", expiration)
 
 	// Test Set
 	err := store.Set("persistentKey", "persistentValue", true)
@@ -56,4 +56,27 @@ func TestFileStorageSkipExpiration(t *testing.T) {
 	require.Equal(t, "persistentValue", val)
 
 	require.NoError(t, store.Close())
+}
+
+func TestFileStorageCompression(t *testing.T) {
+	dir, cleanup := setupTempDir(t)
+	t.Cleanup(cleanup)
+
+	// Test zstd
+	storeZstd := NewFileStorage(dir, "zstd", 2)
+	err := storeZstd.Set("zstdKey", "zstdValue", false)
+	require.NoError(t, err)
+
+	val, err := storeZstd.Get("zstdKey", false)
+	require.NoError(t, err)
+	require.Equal(t, "zstdValue", val)
+
+	// Test gzip
+	storeGzip := NewFileStorage(dir, "gzip", 2)
+	err = storeGzip.Set("gzipKey", "gzipValue", false)
+	require.NoError(t, err)
+
+	val, err = storeGzip.Get("gzipKey", false)
+	require.NoError(t, err)
+	require.Equal(t, "gzipValue", val)
 }

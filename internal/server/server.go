@@ -31,8 +31,13 @@ type Server struct {
 func NewServer(config *config.Config, storage storage.Storage, keyGenerator keygenerator.KeyGenerator) *Server {
 	mux := chi.NewRouter()
 	httpServer := &http.Server{
-		Addr:    config.Host + ":" + strconv.Itoa(config.Port),
-		Handler: mux,
+		Addr:              config.Host + ":" + strconv.Itoa(config.Port),
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	return &Server{
@@ -48,6 +53,7 @@ func (s *Server) RegisterRoutes() {
 	// Register middlewares
 	s.mux.Use(middleware.Logger)
 	s.mux.Use(middleware.Recoverer)
+	s.mux.Use(securityHeaders)
 
 	// Rate limiter
 	if s.config.RateLimiting.Enable {
@@ -88,6 +94,15 @@ func (s *Server) RegisterRoutes() {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
+	})
+}
+
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		next.ServeHTTP(w, r)
 	})
 }
 

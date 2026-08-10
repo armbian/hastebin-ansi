@@ -46,7 +46,7 @@ func (s *PostgresStorage) Set(key string, value string, skip_expiration bool) er
 	ctx := context.Background() // TODO: Add timeout control
 
 	now := time.Now()
-	expiration := now.Add(time.Duration(s.expiration)).Unix()
+	expiration := now.Add(time.Duration(s.expiration) * time.Second).Unix()
 	if skip_expiration {
 		expiration = 0
 	}
@@ -68,7 +68,7 @@ func (s *PostgresStorage) Get(key string, skip_expiration bool) (string, error) 
 	}
 
 	// Delete if expired
-	if expiration != 0 && time.Now().Unix() > expiration {
+	if expiration != 0 && time.Now().Unix() >= expiration {
 		_, err = s.pool.Exec(ctx, deleteSQLQuery, id)
 		if err != nil {
 			return "", err
@@ -78,7 +78,7 @@ func (s *PostgresStorage) Get(key string, skip_expiration bool) (string, error) 
 
 	// Update expiration
 	if !skip_expiration {
-		_, err = s.pool.Exec(ctx, updateSQLQuery, time.Now().Add(time.Duration(s.expiration)).Unix(), id)
+		_, err = s.pool.Exec(ctx, updateSQLQuery, time.Now().Add(time.Duration(s.expiration)*time.Second).Unix(), id)
 		if err != nil {
 			return "", err
 		}

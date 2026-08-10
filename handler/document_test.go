@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 
 type mockStorage struct {
 	data map[string]string
+	err  error
 }
 
 func (m *mockStorage) Get(key string, _ bool) (string, error) {
@@ -28,6 +30,9 @@ func (m *mockStorage) Get(key string, _ bool) (string, error) {
 }
 
 func (m *mockStorage) Set(key, value string, _ bool) error {
+	if m.err != nil {
+		return m.err
+	}
 	m.data[key] = value
 	return nil
 }
@@ -155,7 +160,7 @@ func TestHandlePutLog_ExceedsMaxLength(t *testing.T) {
 	body := bytes.NewBufferString("this content is too long")
 	resp := sendRequest(router, http.MethodPut, "/log", body)
 
-	require.Equal(t, http.StatusBadRequest, resp.Code)
+	require.Equal(t, http.StatusRequestEntityTooLarge, resp.Code)
 	require.Equal(t, "{\"message\": \"Document exceeds maximum length.\"}\n", resp.Body.String())
 }
 
@@ -167,8 +172,20 @@ func TestHandlePost_ExceedsMaxLength(t *testing.T) {
 	body := bytes.NewBufferString("this content is too long")
 	resp := sendRequest(router, http.MethodPost, "/documents", body)
 
-	require.Equal(t, http.StatusBadRequest, resp.Code)
+	require.Equal(t, http.StatusRequestEntityTooLarge, resp.Code)
 	require.Equal(t, "{\"message\": \"Document exceeds maximum length.\"}\n", resp.Body.String())
+}
+
+func TestHandlePost_StorageFailure(t *testing.T) {
+	store := &mockStorage{data: make(map[string]string), err: errors.New("storage unavailable")}
+	handler := NewDocumentHandler(6, 1024, store, &mockKeyGenerator{fixedKey: "test123"})
+	router := chi.NewRouter()
+	handler.RegisterRoutes(router)
+
+	resp := sendRequest(router, http.MethodPost, "/documents", bytes.NewBufferString("test content"))
+
+	require.Equal(t, http.StatusInternalServerError, resp.Code)
+	require.Empty(t, store.data)
 }
 
 func BenchmarkHandlePost(b *testing.B) {
@@ -179,9 +196,10 @@ func BenchmarkHandlePost(b *testing.B) {
 	// Disable logging for benchmark
 	log.Logger = log.Level(zerolog.Disabled)
 
-	body := bytes.NewBufferString("benchmark content")
+	b.ReportAllocs()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sendRequest(router, http.MethodPost, "/documents", body)
+		sendRequest(router, http.MethodPost, "/documents", bytes.NewBufferString("benchmark content"))
 	}
 }
 
@@ -196,6 +214,8 @@ func BenchmarkHandleGet(b *testing.B) {
 	// Add document
 	handler.Store.Set("test123", "benchmark data", false)
 
+	b.ReportAllocs()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		sendRequest(router, http.MethodGet, "/documents/test123", nil)
 	}
@@ -209,9 +229,10 @@ func BenchmarkHandlePutLog(b *testing.B) {
 	// Disable logging for benchmark
 	log.Logger = log.Level(zerolog.Disabled)
 
-	body := bytes.NewBufferString("benchmark log entry")
+	b.ReportAllocs()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sendRequest(router, http.MethodPut, "/log", body)
+		sendRequest(router, http.MethodPut, "/log", bytes.NewBufferString("benchmark log entry"))
 	}
 }
 
@@ -226,6 +247,8 @@ func BenchmarkHandleRawGet(b *testing.B) {
 	// Add document
 	handler.Store.Set("test123", "benchmark data", false)
 
+	b.ReportAllocs()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		sendRequest(router, http.MethodGet, "/raw/test123", nil)
 	}

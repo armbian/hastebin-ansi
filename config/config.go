@@ -58,6 +58,10 @@ type StorageConfig struct {
 	// FilePath is the file path to use for the "file" storage backend
 	// This property is only used for the "file" storage backend
 	FilePath string `yaml:"file_path"`
+
+	// Compression specifies the compression method to use for file storage
+	// Available options are: "none", "gzip", "zstd"
+	Compression string `yaml:"compression"`
 }
 
 type DocumentConfig struct {
@@ -123,8 +127,9 @@ var DefaultConfig = &Config{
 	RecompressStaticAssets: false,
 	KeyGenerator:           "phonetic",
 	Storage: StorageConfig{
-		Type:     "file",
-		FilePath: "data",
+		Type:        "file",
+		FilePath:    "data",
+		Compression: "none",
 	},
 	Logging: LoggingConfig{
 		Level: "info",
@@ -241,6 +246,10 @@ func NewConfig(configFile string) *Config {
 		cfg.Storage.FilePath = storageFilePath
 	}
 
+	if storageCompression := os.Getenv("STORAGE_COMPRESSION"); storageCompression != "" {
+		cfg.Storage.Compression = storageCompression
+	}
+
 	if loggingLevel := os.Getenv("LOGGING_LEVEL"); loggingLevel != "" {
 		cfg.Logging.Level = loggingLevel
 	}
@@ -324,6 +333,10 @@ func NewConfig(configFile string) *Config {
 
 	if cfg.Storage.FilePath == "" {
 		cfg.Storage.FilePath = DefaultConfig.Storage.FilePath
+	}
+
+	if cfg.Storage.Compression == "" {
+		cfg.Storage.Compression = DefaultConfig.Storage.Compression
 	}
 
 	if cfg.Logging.Level == "" {

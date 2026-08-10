@@ -19,12 +19,12 @@ import (
 
 func handleConfig(location string) (*config.Config, storage.Storage, keygenerator.KeyGenerator) {
 	cfg := config.NewConfig(location)
-	exp := time.Duration(cfg.Expiration)
+	exp := time.Duration(cfg.Expiration) * time.Second
 
 	var pasteStorage storage.Storage
 	switch cfg.Storage.Type {
 	case "file":
-		pasteStorage = storage.NewFileStorage(cfg.Storage.FilePath, exp)
+		pasteStorage = storage.NewFileStorage(cfg.Storage.FilePath, cfg.Storage.Compression, exp)
 	case "redis":
 		pasteStorage = storage.NewRedisStorage(cfg.Storage.Host, cfg.Storage.Port, cfg.Storage.Username, cfg.Storage.Password, exp)
 	case "memcached":
