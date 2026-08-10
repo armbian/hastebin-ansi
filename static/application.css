@@ -1,7 +1,18 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    min-height: 100%;
+}
+
 body {
     background: #002B36;
+    color: #fff;
+    margin: 0;
     padding: 20px 50px;
-    margin: 0px;
+    overflow-wrap: anywhere;
 }
 
 /* textarea */
@@ -12,7 +23,7 @@ textarea {
     color: #fff;
     padding: 0px;
     width: 100%;
-    height: 100%;
+    min-height: calc(100dvh - 40px);
     font-family: monospace;
     outline: none;
     resize: none;
@@ -46,7 +57,9 @@ textarea {
     border: 0px;
     outline: none;
     font-size: 13px;
-    overflow: inherit;
+    overflow-x: auto;
+    white-space: pre;
+    min-height: calc(100dvh - 40px);
 }
 
 #box code {
@@ -61,7 +74,7 @@ textarea {
     position: fixed;
     top: 0px;
     right: 0px;
-    z-index: +1000;
+    z-index: 1000;
     /* watch out */
 }
 
@@ -90,13 +103,13 @@ textarea {
 #box1 a.logo,
 #box1 a.logo:visited {
     display: inline-block;
-    background: url(logo.png);
-    width: 126px;
-    height: 42px;
+    background: url(https://armbian.com/armbian-logo-white.png) center / contain no-repeat;
+    width: 170px;
+    height: 26px;
 }
 
-#box1 a.logo:hover {
-    background-position: 0 bottom;
+#menu-toggle {
+    display: none;
 }
 
 #box2 .function {
@@ -105,6 +118,12 @@ textarea {
     height: 37px;
     display: inline-block;
     position: relative;
+}
+
+#box2 .function:focus-visible,
+#delete-after:focus-visible {
+    outline: 2px solid #2aa198;
+    outline-offset: 2px;
 }
 
 #box2 .link embed {
@@ -232,4 +251,178 @@ textarea {
 
 #messages li.error {
     background: rgba(102, 8, 0, 0.8);
+}
+
+@media (max-width: 720px) {
+    body {
+        padding: 108px 16px 16px 40px;
+        transition: padding-top 160ms ease;
+    }
+
+    body.toolbar-collapsed {
+        padding-top: 64px;
+    }
+
+    #key {
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "brand brand"
+            "expiry actions";
+        align-items: center;
+        gap: 0 8px;
+        padding: 4px 64px 6px 16px;
+        background: #00222b;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+        transition: transform 160ms ease;
+    }
+
+    #key.is-collapsed {
+        transform: translateY(-100%);
+    }
+
+    #menu-toggle {
+        display: inline-flex;
+        position: fixed;
+        z-index: 1001;
+        top: 12px;
+        right: 12px;
+        width: 44px;
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #2aa198;
+        border-radius: 6px;
+        background: #073642;
+        color: #fff;
+        font-size: 24px;
+        line-height: 1;
+    }
+
+    #menu-toggle:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+    }
+
+    #box1 {
+        grid-area: brand;
+        padding: 3px 0 5px;
+    }
+
+    #box1 a.logo,
+    #box1 a.logo:visited {
+        width: 140px;
+        height: 21px;
+        transform: translateX(24px);
+    }
+
+    #box2 {
+        grid-area: actions;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        padding: 3px 0;
+        white-space: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #00222b;
+    }
+
+    #box2 .function {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+    }
+
+    .delete-after-label {
+        grid-area: expiry;
+        padding: 7px 0;
+        background: #00222b;
+        white-space: nowrap;
+    }
+
+    #delete-after {
+        min-height: 32px;
+        font-size: 16px;
+    }
+
+    #messages {
+        top: 112px;
+        right: 16px;
+        left: 16px;
+        width: auto;
+    }
+
+    body.toolbar-collapsed #messages {
+        top: 64px;
+    }
+
+    #box3,
+    #pointer {
+        display: none !important;
+    }
+
+    #linenos {
+        display: block;
+        position: fixed;
+        top: 108px;
+        width: 34px;
+        font-size: 14px;
+        line-height: 1.5;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    body.toolbar-collapsed #linenos {
+        top: 64px;
+    }
+
+    textarea,
+    #box {
+        min-height: calc(100dvh - 124px);
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+}
+
+@media (max-width: 390px) {
+    body {
+        padding: 72px 16px 16px 40px;
+    }
+
+    #key {
+        grid-template-areas: "expiry actions";
+        padding: 4px 64px 6px 16px;
+    }
+
+    #box1 {
+        display: none;
+    }
+
+    #messages {
+        top: 76px;
+    }
+
+    body.toolbar-collapsed #messages {
+        top: 64px;
+    }
+
+    #linenos {
+        top: 72px;
+    }
+
+    body.toolbar-collapsed #linenos {
+        top: 64px;
+    }
+
+    textarea,
+    #box {
+        min-height: calc(100dvh - 88px);
+    }
+
 }

@@ -4,6 +4,7 @@
 
     <title>hastebin</title>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,8 +24,8 @@
         integrity="sha512-bgHRAiTjGrzHzLyKOnpFvaEpGzJet3z4tZnXGjpsCcqOnAH6VGUx9frc5bcIhKTVLEiCO6vEhNAgx5jtLUYrfA=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
-    <script type="text/javascript" src="ansi-to-html.js?v=0.0.8"></script>
-    <script type="text/javascript" src="application.js?v=0.0.8"></script>
+    <script type="text/javascript" src="ansi-to-html.js?v=0.0.9"></script>
+    <script type="text/javascript" src="application.js?v=0.0.9"></script>
 
     <meta name="robots" content="noindex,nofollow" />
 
@@ -46,19 +47,24 @@
             window.onpopstate = function (evt) {
                 try {
                     handlePop(evt);
-                } catch (err) { /* not loaded yet */
+                } catch (err) {
+                    /* not loaded yet */
                 }
             };
         }, 1000);
         // Construct app and load initial path
         $(function () {
-            app = new haste('hastebin', { twitter: false });
+            app = new haste('hastebin', {
+                twitter: false
+            });
             $.getJSON('/api/config', function (config) {
                 if (config.delete_after_enabled) {
                     $('#delete-after-control').show();
                 }
             });
-            handlePop({ target: window });
+            handlePop({
+                target: window
+            });
         });
     </script>
 
@@ -67,11 +73,14 @@
 <body>
     <ul id="messages"></ul>
 
+    <button id="menu-toggle" type="button" aria-controls="key" aria-expanded="true" aria-label="Toggle paste controls">
+        <span aria-hidden="true">☰</span>
+    </button>
     <div id="key">
         <div id="pointer" style="display:none;"></div>
         <div id="box1">
             <!--suppress HtmlUnknownTarget -->
-            <a href="/about.md" class="logo"></a>
+            <a href="/about.md" class="logo" aria-label="Armbian Hastebin home"></a>
         </div>
         <label id="delete-after-control" class="delete-after-label" for="delete-after" style="display:none">Delete after
             <select id="delete-after">
@@ -83,11 +92,13 @@
             </select>
         </label>
         <div id="box2">
-            <button class="save function button-picture">Save</button>
-            <button class="new function button-picture">New</button>
-            <button class="duplicate function button-picture">Duplicate & Edit</button>
-            <button class="raw function button-picture">Just Text</button>
-            <button class="twitter function button-picture">Twitter</button>
+            <button class="save function button-picture" aria-label="Save paste" title="Save">Save</button>
+            <button class="new function button-picture" aria-label="Create new paste" title="New">New</button>
+            <button class="duplicate function button-picture" aria-label="Duplicate and edit paste"
+                title="Duplicate & Edit">Duplicate & Edit</button>
+            <button class="raw function button-picture" aria-label="View raw text" title="Just Text">Just Text</button>
+            <button class="twitter function button-picture" aria-label="Share on Twitter"
+                title="Twitter">Twitter</button>
         </div>
         <div id="box3" style="display:none;">
             <div class="label"></div>

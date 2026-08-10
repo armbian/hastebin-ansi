@@ -94,10 +94,33 @@ var haste = function (appName, options) {
     this.options = options;
     this.configureShortcuts();
     this.configureButtons();
+    this.configureToolbar();
     // If Twitter is disabled, hide the button
     if (!options.twitter) {
         $('#box2 .twitter').hide();
     }
+};
+
+haste.prototype.configureToolbar = function () {
+    var $toolbar = $('#key');
+    var $toggle = $('#menu-toggle');
+
+    function setCollapsed(collapsed) {
+        $toolbar.toggleClass('is-collapsed', collapsed);
+        $(document.body).toggleClass('toolbar-collapsed', collapsed);
+        $toggle.attr('aria-expanded', String(!collapsed));
+        $toggle.attr('aria-label', collapsed ? 'Show paste controls' : 'Hide paste controls');
+    }
+
+    $toggle.click(function () {
+        setCollapsed(!$toolbar.hasClass('is-collapsed'));
+    });
+
+    $(document).keydown(function (evt) {
+        if (evt.key === 'Escape' && window.matchMedia('(max-width: 720px)').matches) {
+            setCollapsed(true);
+        }
+    });
 };
 
 // Set the page title - include the appName
