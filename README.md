@@ -1,399 +1,181 @@
-# Important announcement:
+# Armbian Hastebin
 
-## [Soon a new version of Hastebin will be launched!](https://github.com/toptal/haste-server/issues/429)
+Armbian Hastebin is a lightweight pastebin server written in Go with ANSI color rendering. It began as a fork of [haste-server](https://github.com/shykes/haste-server), then was migrated from Node.js to Go. Pastes can be stored on the filesystem, Redis, Memcached, MongoDB, PostgreSQL, or S3-compatible object storage.
 
-[Check here what you need to know.](https://github.com/toptal/haste-server/issues/429)
+## Features
 
-.    
-.    
-.    
+- ANSI and syntax-highlighted paste rendering
+- Responsive interface with a collapsible mobile toolbar
+- Random or human-readable (phonetic) paste keys
+- Filesystem, Redis, Memcached, MongoDB, PostgreSQL, and S3 storage backends
+- Optional per-paste **delete after** lifetime
+- Background expired-paste cleanup for the file backend
+- IP-based rate limiting, Prometheus metrics, and a health endpoint
+- Request-body, HTTP-header, and server timeout limits
 
-# Haste
+## Quick start
 
-Haste is an open-source pastebin software written in node.js, which is easily
-installable in any network.  It can be backed by either redis or filesystem,
-and has a very easy adapter interface for other stores.  A publicly available
-version can be found at [hastebin.com](http://hastebin.com)
-
-Major design objectives:
-
-* Be really pretty
-* Be really simple
-* Be easy to set up and use
-
-Haste works really well with a little utility called
-[haste-client](https://github.com/seejohnrun/haste-client), allowing you
-to do things like:
-
-`cat something | haste`
-
-which will output a URL to share containing the contents of `cat something`'s
-STDOUT.  Check the README there for more details and usages.
-
-## Tested Browsers
-
-* Firefox 8
-* Chrome 17
-* Safari 5.3
-
-## Installation
-
-1.  Download the package, and expand it
-2.  Explore the settings inside of config.json, but the defaults should be good
-3.  `npm install`
-4.  `npm start` (you may specify an optional `<config-path>` as well)
-
-## Settings
-
-* `host` - the host the server runs on (default localhost)
-* `port` - the port the server runs on (default 7777)
-* `keyLength` - the length of the keys to user (default 10)
-* `maxLength` - maximum length of a paste (default 400000)
-* `staticMaxAge` - max age for static assets (86400)
-* `recompressStaticAssets` - whether or not to compile static js assets (true)
-* `documents` - static documents to serve (ex: http://hastebin.com/about.com)
-  in addition to static assets.  These will never expire.
-* `storage` - storage options (see below)
-* `logging` - logging preferences
-* `keyGenerator` - key generator options (see below)
-* `rateLimits` - settings for rate limiting (see below)
-
-## Rate Limiting
-
-When present, the `rateLimits` option enables built-in rate limiting courtesy
-of `connect-ratelimit`.  Any of the options supported by that library can be
-used and set in `config.json`.
-
-See the README for [connect-ratelimit](https://github.com/dharmafly/connect-ratelimit)
-for more information!
-
-## Key Generation
-
-### Phonetic
-
-Attempts to generate phonetic keys, similar to `pwgen`
-
-``` json
-{
-  "type": "phonetic"
-}
-```
-
-### Random
-
-Generates a random key
-
-``` json
-{
-  "type": "random",
-  "keyspace": "abcdef"
-}
-```
-
-The _optional_ keySpace argument is a string of acceptable characters
-for the key.
-
-## Storage
-
-### File
-
-To use file storage (the default) change the storage section in `config.json` to
-something like:
-
-``` json
-{
-  "path": "./data",
-  "type": "file"
-}
-```
-
-where `path` represents where you want the files stored.
-
-File storage currently does not support paste expiration, you can follow [#191](https://github.com/seejohnrun/haste-server/issues/191) for status updates.
-
-### Redis
-
-To use redis storage you must install the `redis` package in npm, and have
-`redis-server` running on the machine.
-
-`npm install redis`
-
-Once you've done that, your config section should look like:
-
-``` json
-{
-  "type": "redis",
-  "host": "localhost",
-  "port": 6379,
-  "db": 2
-}
-```
-
-You can also set an `expire` option to the number of seconds to expire keys in.
-This is off by default, but will constantly kick back expirations on each view
-or post.
-
-All of which are optional except `type` with very logical default values.
-
-If your Redis server is configured for password authentification, use the `password` field.
-
-### Postgres
-
-To use postgres storage you must install the `pg` package in npm
-
-`npm install pg`
-
-Once you've done that, your config section should look like:
-
-``` json
-{
-  "type": "postgres",
-  "connectionUrl": "postgres://user:password@host:5432/database"
-}
-```
-
-You can also just set the environment variable for `DATABASE_URL` to your database connection url.
-
-You will have to manually add a table to your postgres database:
-
-`create table entries (id serial primary key, key varchar(255) not null, value text not null, expiration int, unique(key));`
-
-You can also set an `expire` option to the number of seconds to expire keys in.
-This is off by default, but will constantly kick back expirations on each view
-or post.
-
-All of which are optional except `type` with very logical default values.
-
-### MongoDB
-
-To use mongodb storage you must install the 'mongodb' package in npm
-
-`npm install mongodb`
-
-Once you've done that, your config section should look like:
-
-``` json
-{
-  "type": "mongo",
-  "connectionUrl": "mongodb://localhost:27017/database"
-}
-```
-
-You can also just set the environment variable for `DATABASE_URL` to your database connection url.
-
-Unlike with postgres you do NOT have to create the table in your mongo database prior to running.
-
-You can also set an `expire` option to the number of seconds to expire keys in.
-This is off by default, but will constantly kick back expirations on each view or post.
-
-### Memcached
-
-To use memcache storage you must install the `memcached` package via npm
-
-`npm install memcached`
-
-Once you've done that, your config section should look like:
-
-``` json
-{
-  "type": "memcached",
-  "host": "127.0.0.1",
-  "port": 11211
-}
-```
-
-You can also set an `expire` option to the number of seconds to expire keys in.
-This behaves just like the redis expirations, but does not push expirations
-forward on GETs.
-
-All of which are optional except `type` with very logical default values.
-
-### RethinkDB
-
-To use the RethinkDB storage system, you must install the `rethinkdbdash` package via npm
-
-`npm install rethinkdbdash`
-
-Once you've done that, your config section should look like this:
-
-``` json
-{
-  "type": "rethinkdb",
-  "host": "127.0.0.1",
-  "port": 28015,
-  "db": "haste"
-}
-```
-
-In order for this to work, the database must be pre-created before the script is ran.
-Also, you must create an `uploads` table, which will store all the data for uploads.
-
-You can optionally add the `user` and `password` properties to use a user system.
-
-### Google Datastore
-
-To use the Google Datastore storage system, you must install the `@google-cloud/datastore` package via npm
-
-`npm install @google-cloud/datastore`
-
-Once you've done that, your config section should look like this:
-
-``` json
-{
-  "type": "google-datastore"
-}
-```
-
-Authentication is handled automatically by [Google Cloud service account credentials](https://cloud.google.com/docs/authentication/getting-started), by providing authentication details to the GOOGLE_APPLICATION_CREDENTIALS environmental variable.
-
-### Amazon S3
-
-To use [Amazon S3](https://aws.amazon.com/s3/) as a storage system, you must
-install the `aws-sdk` package via npm:
-
-`npm install aws-sdk`
-
-Once you've done that, your config section should look like this:
-
-```json
-{
-  "type": "amazon-s3",
-  "bucket": "your-bucket-name",
-  "region": "us-east-1"
-}
-```
-
-Authentication is handled automatically by the client. Check
-[Amazon's documentation](https://docs.aws.amazon.com/sdk-for-javascript/v2/developer-guide/setting-credentials-node.html)
-for more information. You will need to grant your role these permissions to
-your bucket:
-
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Action": [
-                "s3:GetObject",
-                "s3:PutObject"
-            ],
-            "Effect": "Allow",
-            "Resource": "arn:aws:s3:::your-bucket-name-goes-here/*"
-        }
-    ]
-}
-```
-
-## Docker
-
-### Build image
+### Docker Compose
 
 ```bash
-docker build --tag haste-server .
+docker compose up --build
 ```
 
-### Run container
+The application listens on `http://localhost:7777` by default. Paste files are persisted under `./data`.
 
-For this example we will run haste-server, and connect it to a redis server
+Static assets are embedded in the Go binary. Rebuild the image after changing the UI:
 
 ```bash
-docker run --name haste-server-container --env STORAGE_TYPE=redis --env STORAGE_HOST=redis-server --env STORAGE_PORT=6379 haste-server
+docker compose up --build
 ```
 
-### Use docker-compose example
+If the browser still serves an old JavaScript or CSS asset, use a hard refresh (`Ctrl+Shift+R`).
 
-There is an example `docker-compose.yml` which runs haste-server together with memcached
+### Local development
+
+Go 1.26 or newer is required.
 
 ```bash
-docker-compose up
+go run ./cmd --config config.yaml
 ```
 
-### Configuration
+Run the test suite:
 
-The docker image is configured using environmental variables as you can see in the example above.
+```bash
+go test ./...
+```
 
-Here is a list of all the environment variables
+Run allocation and throughput benchmarks:
 
-### Storage
+```bash
+go test -run '^$' -bench . -benchmem ./handler ./internal/storage ./internal/keygenerator
+```
 
-|          Name          | Default value |                                                  Description                                                  |
-| :--------------------: | :-----------: | :-----------------------------------------------------------------------------------------------------------: |
-|      STORAGE_TYPE      |   memcached   |    Type of storage . Accepted values: "memcached","redis","postgres","rethinkdb", "amazon-s3", and "file"     |
-|      STORAGE_HOST      |   127.0.0.1   |                 Storage host. Applicable for types: memcached, redis, postgres, and rethinkdb                 |
-|      STORAGE_PORT      |     11211     |           Port on the storage host. Applicable for types: memcached, redis, postgres, and rethinkdb           |
-| STORAGE_EXPIRE_SECONDS |    2592000    | Number of seconds to expire keys in. Applicable for types. Redis, postgres, memcached. `expire` option to the |
-|       STORAGE_DB       |       2       |                    The name of the database. Applicable for redis, postgres, and rethinkdb                    |
-|    STORAGE_PASSWORD    |               |                       Password for database. Applicable for redis, postges, rethinkdb .                       |
-|    STORAGE_USERNAME    |               |                           Database username. Applicable for postgres, and rethinkdb                           |
-|   STORAGE_AWS_BUCKET   |               |                          Applicable for amazon-s3. This is the name of the S3 bucket                          |
-|   STORAGE_AWS_REGION   |               |                      Applicable for amazon-s3. The region in which the bucket is located                      |
-|    STORAGE_FILEPATH    |               |                            Path to file to save data to. Applicable for type file                             |
+## Configuration
 
-### Logging
+The server reads `config.yaml` from the working directory by default. Use `--config /path/to/config.yaml` to select another file.
 
-|       Name        | Default value | Description |
-| :---------------: | :-----------: | :---------: |
-|   LOGGING_LEVEL   |    verbose    |             |
-|   LOGGING_TYPE=   |    Console    |
-| LOGGING_COLORIZE= |     true      |
+Example:
 
-### Basics
+```yaml
+host: "0.0.0.0"
+port: 7777
+key_length: 10
+max_length: 4000000 # bytes
+key_generator: "phonetic" # phonetic or random
+key_space: "abcdefghijklmnopqrstuvwxyz"
 
-|           Name           |  Default value   |                                        Description                                        |
-| :----------------------: | :--------------: | :---------------------------------------------------------------------------------------: |
-|           HOST           |     0.0.0.0      |                         The hostname which the server answers on                          |
-|           PORT           |       7777       |                          The port on which the server is running                          |
-|        KEY_LENGTH        |        10        |                              the length of the keys to user                               |
-|        MAX_LENGTH        |      400000      |                                 maximum length of a paste                                 |
-|      STATIC_MAX_AGE      |      86400       |                                 max age for static assets                                 |
-| RECOMPRESS_STATIC_ASSETS |       true       |                        whether or not to compile static js assets                         |
-|    KEYGENERATOR_TYPE     |     phonetic     |             Type of key generator. Acceptable values: "phonetic", or "random"             |
-|  KEYGENERATOR_KEYSPACE   |                  |                  keySpace argument is a string of acceptable characters                   |
-|        DOCUMENTS         | about=./about.md | Comma separated list of static documents to serve. ex: \n about=./about.md,home=./home.md |
+storage:
+  type: "file"
+  file_path: "./data"
+  compression: "none" # none, gzip, or zstd
 
-### Rate limits
+delete_after:
+  enable: true
 
-|                 Name                 |             Default value             |                                       Description                                        |
-| :----------------------------------: | :-----------------------------------: | :--------------------------------------------------------------------------------------: |
-|   RATELIMITS_NORMAL_TOTAL_REQUESTS   |                  500                  | By default anyone uncategorized will be subject to 500 requests in the defined timespan. |
-| RATELIMITS_NORMAL_EVERY_MILLISECONDS |                 60000                 |             The timespan to allow the total requests for uncategorized users             |
-| RATELIMITS_WHITELIST_TOTAL_REQUESTS  |                                       |      By default client names in the whitelist will not have their requests limited.      |
-|  RATELIMITS_WHITELIST_EVERY_SECONDS  |                                       |      By default client names in the whitelist will not have their requests limited.      |
-|         RATELIMITS_WHITELIST         | example1.whitelist,example2.whitelist |           Comma separated list of the clients which are in the whitelist pool            |
-| RATELIMITS_BLACKLIST_TOTAL_REQUESTS  |                                       |    By default client names in the blacklist will be subject to 0 requests per hours.     |
-|  RATELIMITS_BLACKLIST_EVERY_SECONDS  |                                       |     By default client names in the blacklist will be subject to 0 requests per hours     |
-|         RATELIMITS_BLACKLIST         | example1.blacklist,example2.blacklist |           Comma separated list of the clients which are in the blacklistpool.            |
+rate_limiting:
+  enable: true
+  limit: 500
+  window: 15 # seconds
+  trusted_proxy_count: 0
 
-## Author
+logging:
+  level: "info"
+  colorize: true
 
-John Crepezzi <john.crepezzi@gmail.com>
+documents:
+  - key: "about"
+    path: "./about.md"
+```
 
-## License
+### Main settings
 
-(The MIT License)
+| Key | Description |
+|---|---|
+| `host`, `port` | HTTP bind address and port. |
+| `key_length` | Length of generated paste keys. |
+| `key_generator` | `phonetic` or `random`. |
+| `key_space` | Character set used only by the `random` generator. |
+| `max_length` | Maximum accepted paste-body size in bytes. |
+| `expiration` | Default backend TTL in seconds. `0` disables it. |
+| `documents` | Permanent static documents loaded at startup. |
 
-Copyright © 2011-2012 John Crepezzi
+### Storage settings
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the ‘Software’), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
+Supported `storage.type` values: `file`, `redis`, `memcached`, `mongodb`, `postgres`, and `s3`.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+| Field | Used by |
+|---|---|
+| `file_path` | `file` |
+| `compression` | `file`; `none`, `gzip`, or `zstd` |
+| `host`, `port` | Redis, Memcached, MongoDB, PostgreSQL, and S3 endpoint |
+| `username`, `password` | Redis, MongoDB, PostgreSQL, and S3 |
+| `database` | MongoDB and PostgreSQL |
+| `bucket`, `aws_region` | S3 |
 
-THE SOFTWARE IS PROVIDED ‘AS IS’, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE
+The PostgreSQL table and required migrations are created during startup.
 
-### Other components:
+### Rate limiting and proxies
 
-* jQuery: MIT/GPL license
-* highlight.js: Copyright © 2006, Ivan Sagalaev
-* highlightjs-coffeescript: WTFPL - Copyright © 2011, Dmytrii Nagirniak
+`trusted_proxy_count: 0` is the safe default: the rate-limit key uses the direct TCP peer IP and ignores client-provided `X-Forwarded-For` headers.
+
+If the service is behind a known number of trusted reverse proxies, for example one Nginx or Traefik proxy:
+
+```yaml
+rate_limiting:
+  trusted_proxy_count: 1
+```
+
+Only configure this when those proxies reliably overwrite and forward client-IP headers.
+
+### Environment variables
+
+Most YAML values can be overridden with environment variables:
+
+```text
+HOST, PORT, KEY_LENGTH, MAX_LENGTH, STATIC_MAX_AGE
+KEY_GENERATOR
+STORAGE_TYPE, STORAGE_HOST, STORAGE_PORT, STORAGE_USERNAME,
+STORAGE_PASSWORD, STORAGE_DATABASE, STORAGE_BUCKET,
+STORAGE_AWS_REGION, STORAGE_FILE_PATH, STORAGE_COMPRESSION
+LOGGING_LEVEL, LOGGING_COLORIZE
+RATE_LIMITING_ENABLE, RATE_LIMITING_LIMIT, RATE_LIMITING_WINDOW,
+RATE_LIMITING_TRUSTED_PROXY_COUNT
+DELETE_AFTER_ENABLE
+```
+
+Additional static documents can be added as `DOCUMENTS_<key>=<path>`.
+
+## API
+
+| Operation | Endpoint | Response |
+|---|---|---|
+| Create a paste | `POST /documents` | `{ "key": "...", "expires_at": "..." }` |
+| Haste-client-compatible upload | `PUT /log` or `POST /log` | Direct URL |
+| Read a paste | `GET /documents/{key}` | `{ "key": "...", "data": "..." }` |
+| Read raw content | `GET /raw/{key}` | `text/plain` |
+| Health check | `GET /health` | `200 OK` |
+| Metrics | `GET /metrics` | Prometheus metrics |
+
+Paste creation accepts a plain-text request body or a `multipart/form-data` request with a `data` field.
+
+### Delete after
+
+Enable the feature with `delete_after.enable: true`. API clients can provide an `X-Delete-After` header:
+
+```bash
+curl -X POST http://localhost:7777/documents \
+  -H 'Content-Type: text/plain' \
+  -H 'X-Delete-After: 1h' \
+  --data 'temporary paste'
+```
+
+The value uses Go duration syntax: `10m`, `1h`, `24h`, or `168h`. The maximum is 30 days. `never`, or omitting the header, creates a permanent paste.
+
+- Redis and Memcached use native TTL support.
+- MongoDB uses a TTL index.
+- PostgreSQL stores a fixed expiry timestamp.
+- The file backend stores `.expires` metadata and cleans expired pastes at startup and every 10 minutes.
+- S3 stores expiry metadata and deletes an expired object when it is read. Configure an S3 bucket lifecycle policy to remove expired objects that are never read.
+
+When `delete_after.enable: false`, the UI selector is hidden and API requests with `X-Delete-After` return `403`.
