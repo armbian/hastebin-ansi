@@ -77,6 +77,16 @@ textarea {
     padding: 0px 5px;
 }
 
+.delete-after-label {
+    display: block;
+    padding: 6px;
+    background: #08323c;
+    color: #c4dce3;
+    font: 12px Helvetica, sans-serif;
+}
+
+#delete-after { margin-left: 4px; }
+
 #box1 a.logo,
 #box1 a.logo:visited {
     display: inline-block;

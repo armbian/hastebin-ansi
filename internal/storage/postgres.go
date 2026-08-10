@@ -9,8 +9,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const setSQLQuery = "INSERT INTO entries (key, value, expiration) VALUES ($1, $2, $3) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, expiration = EXCLUDED.expiration"
-const getSQLQuery = "SELECT id, value, expiration FROM entries WHERE key = $1"
+const setSQLQuery = "INSERT INTO entries (key, value, expiration, fixed_expiration) VALUES ($1, $2, $3, $4) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, expiration = EXCLUDED.expiration, fixed_expiration = EXCLUDED.fixed_expiration"
+const getSQLQuery = "SELECT id, value, expiration, fixed_expiration FROM entries WHERE key = $1"
 const deleteSQLQuery = "DELETE FROM entries WHERE id = $1"
 const updateSQLQuery = "UPDATE entries SET expiration = $1 WHERE id = $2"
 
@@ -34,9 +34,13 @@ func NewPostgresStorage(host string, port int, username string, passowrd string,
 	}
 
 	// Create table if not exists
-	_, err = pool.Exec(context.Background(), "CREATE TABLE IF NOT EXISTS entries (id SERIAL PRIMARY KEY, key VARCHAR(255) NOT NULL UNIQUE, value TEXT, expiration BIGINT)")
+	_, err = pool.Exec(context.Background(), "CREATE TABLE IF NOT EXISTS entries (id SERIAL PRIMARY KEY, key VARCHAR(255) NOT NULL UNIQUE, value TEXT, expiration BIGINT, fixed_expiration BOOLEAN NOT NULL DEFAULT FALSE)")
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create table")
+	}
+	_, err = pool.Exec(context.Background(), "ALTER TABLE entries ADD COLUMN IF NOT EXISTS fixed_expiration BOOLEAN NOT NULL DEFAULT FALSE")
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to migrate entries table")
 	}
 
 	return &PostgresStorage{pool: pool, expiration: expiration}
@@ -51,7 +55,12 @@ func (s *PostgresStorage) Set(key string, value string, skip_expiration bool) er
 		expiration = 0
 	}
 
-	_, err := s.pool.Exec(ctx, setSQLQuery, key, value, expiration)
+	_, err := s.pool.Exec(ctx, setSQLQuery, key, value, expiration, false)
+	return err
+}
+
+func (s *PostgresStorage) SetWithDeleteAfter(key, value string, deleteAfter time.Duration) error {
+	_, err := s.pool.Exec(context.Background(), setSQLQuery, key, value, time.Now().Add(deleteAfter).Unix(), true)
 	return err
 }
 
@@ -61,8 +70,9 @@ func (s *PostgresStorage) Get(key string, skip_expiration bool) (string, error) 
 	var id int
 	var value string
 	var expiration int64
+	var fixedExpiration bool
 
-	err := s.pool.QueryRow(ctx, getSQLQuery, key).Scan(&id, &value, &expiration)
+	err := s.pool.QueryRow(ctx, getSQLQuery, key).Scan(&id, &value, &expiration, &fixedExpiration)
 	if err != nil {
 		return "", err
 	}
@@ -77,7 +87,7 @@ func (s *PostgresStorage) Get(key string, skip_expiration bool) (string, error) 
 	}
 
 	// Update expiration
-	if !skip_expiration {
+	if !skip_expiration && !fixedExpiration {
 		_, err = s.pool.Exec(ctx, updateSQLQuery, time.Now().Add(time.Duration(s.expiration)*time.Second).Unix(), id)
 		if err != nil {
 			return "", err

@@ -46,6 +46,10 @@ func (s *RedisStorage) Set(key string, value string, skip_expiration bool) error
 	return s.client.Set(ctx, key, value, expiry).Err()
 }
 
+func (s *RedisStorage) SetWithDeleteAfter(key, value string, deleteAfter time.Duration) error {
+	return s.client.Set(context.Background(), key, value, deleteAfter).Err()
+}
+
 func (s *RedisStorage) Get(key string, skip_expiration bool) (string, error) {
 	ctx := context.Background() // TODO: Add timeout control
 

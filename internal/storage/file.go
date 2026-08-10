@@ -10,6 +10,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/armbian/ansi-hastebin/internal/unsafeconv"
@@ -37,6 +39,14 @@ func NewFileStorage(path, compression string, _ time.Duration) Storage {
 }
 
 func (fs *FileStorage) Set(key string, value string, skip_expiration bool) error {
+	return fs.set(key, value, 0)
+}
+
+func (fs *FileStorage) SetWithDeleteAfter(key, value string, deleteAfter time.Duration) error {
+	return fs.set(key, value, deleteAfter)
+}
+
+func (fs *FileStorage) set(key string, value string, deleteAfter time.Duration) error {
 	dst := filepath.Join(fs.path, md5Hex(key))
 
 	var output []byte
@@ -92,12 +102,18 @@ func (fs *FileStorage) Set(key string, value string, skip_expiration bool) error
 		}
 	}
 
-	return nil
+	metadataPath := baseDst + ".expires"
+	if deleteAfter <= 0 {
+		if err := os.Remove(metadataPath); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	return os.WriteFile(metadataPath, []byte(strconv.FormatInt(time.Now().Add(deleteAfter).Unix(), 10)), 0600)
 }
 
 func (fs *FileStorage) Get(key string, skip_expiration bool) (string, error) {
 	baseDst := filepath.Join(fs.path, md5Hex(key))
-
 	// According to requirements: if the file found first uncompressed use the uncompressed one.
 	if data, err := os.ReadFile(baseDst); err == nil {
 		return unsafeconv.UnsafeString(data), nil
@@ -130,4 +146,46 @@ func (fs *FileStorage) Get(key string, skip_expiration bool) (string, error) {
 
 func (fs *FileStorage) Close() error {
 	return nil
+}
+
+func (fs *FileStorage) CleanupExpired() (int, error) {
+	dir, err := os.Open(fs.path)
+	if err != nil {
+		return 0, err
+	}
+	defer dir.Close()
+
+	removed := 0
+	for {
+		names, readErr := dir.Readdirnames(512)
+		for _, name := range names {
+			if !strings.HasSuffix(name, ".expires") {
+				continue
+			}
+			base := filepath.Join(fs.path, strings.TrimSuffix(name, ".expires"))
+			data, err := os.ReadFile(filepath.Join(fs.path, name))
+			if err != nil {
+				return removed, err
+			}
+			expiresAt, err := strconv.ParseInt(string(data), 10, 64)
+			if err != nil {
+				return removed, err
+			}
+			if time.Now().Unix() < expiresAt {
+				continue
+			}
+			for _, suffix := range []string{"", ".gz", ".zst", ".expires"} {
+				if err := os.Remove(base + suffix); err != nil && !os.IsNotExist(err) {
+					return removed, err
+				}
+			}
+			removed++
+		}
+		if readErr == io.EOF {
+			return removed, nil
+		}
+		if readErr != nil {
+			return removed, readErr
+		}
+	}
 }

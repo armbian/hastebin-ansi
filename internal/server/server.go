@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strconv"
@@ -26,6 +27,7 @@ type Server struct {
 	keyGenerator keygenerator.KeyGenerator
 	server       *http.Server
 	mux          *chi.Mux
+	cleanupStop  chan struct{}
 }
 
 func NewServer(config *config.Config, storage storage.Storage, keyGenerator keygenerator.KeyGenerator) *Server {
@@ -46,6 +48,7 @@ func NewServer(config *config.Config, storage storage.Storage, keyGenerator keyg
 		keyGenerator: keyGenerator,
 		server:       httpServer,
 		mux:          mux,
+		cleanupStop:  make(chan struct{}),
 	}
 }
 
@@ -57,7 +60,14 @@ func (s *Server) RegisterRoutes() {
 
 	// Rate limiter
 	if s.config.RateLimiting.Enable {
-		s.mux.Use(httprate.LimitByRealIP(s.config.RateLimiting.Limit, time.Duration(s.config.RateLimiting.Window)*time.Second))
+		if s.config.RateLimiting.TrustedProxyCount > 0 {
+			s.mux.Use(middleware.ClientIPFromXFFTrustedProxies(s.config.RateLimiting.TrustedProxyCount))
+		} else {
+			s.mux.Use(middleware.ClientIPFromRemoteAddr)
+		}
+		s.mux.Use(httprate.LimitBy(s.config.RateLimiting.Limit, time.Duration(s.config.RateLimiting.Window)*time.Second, func(r *http.Request) (string, error) {
+			return httprate.CanonicalizeIP(middleware.GetClientIP(r.Context())), nil
+		}))
 	}
 
 	// Register promhttp middleware
@@ -65,7 +75,15 @@ func (s *Server) RegisterRoutes() {
 
 	// Register document handler
 	documentHandler := handler.NewDocumentHandler(s.config.KeyLength, s.config.MaxLength, s.storage, s.keyGenerator)
+	documentHandler.DeleteAfterEnabled = s.config.DeleteAfter.Enable
 	documentHandler.RegisterRoutes(s.mux)
+
+	s.mux.Get("/api/config", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(struct {
+			DeleteAfterEnabled bool `json:"delete_after_enabled"`
+		}{DeleteAfterEnabled: s.config.DeleteAfter.Enable})
+	})
 
 	// Register health check
 	s.mux.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -108,14 +126,42 @@ func securityHeaders(next http.Handler) http.Handler {
 
 func (s *Server) Start() {
 	log.Info().Str("host", s.config.Host).Int("port", s.config.Port).Msg("Starting server")
+	if cleaner, ok := s.storage.(storage.ExpiredPasteCleaner); ok {
+		go s.cleanupLoop(cleaner)
+	}
 
 	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal().Err(err).Msg("Failed to start server")
 	}
 }
 
+func (s *Server) cleanupLoop(cleaner storage.ExpiredPasteCleaner) {
+	cleanup := func() {
+		removed, err := cleaner.CleanupExpired()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to clean expired pastes")
+			return
+		}
+		if removed > 0 {
+			log.Info().Int("removed", removed).Msg("Cleaned expired pastes")
+		}
+	}
+	cleanup()
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			cleanup()
+		case <-s.cleanupStop:
+			return
+		}
+	}
+}
+
 func (s *Server) Shutdown(ctx context.Context) {
 	log.Info().Msg("Gracefully shutting down server")
+	close(s.cleanupStop)
 
 	if err := s.storage.Close(); err != nil {
 		log.Error().Err(err).Msg("Failed to close storage")

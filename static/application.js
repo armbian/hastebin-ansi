@@ -59,14 +59,14 @@ haste_document.prototype.load = function (key, callback, lang) {
 };
 
 // Save this document to the server and lock it here
-haste_document.prototype.save = function (data, callback) {
+haste_document.prototype.save = function (data, deleteAfter, callback) {
     if (this.locked) {
         return false;
     }
     this.data = data;
     var _this = this;
     $.ajax('/documents', {
-        type: 'post', data: data, dataType: 'json', contentType: 'text/plain; charset=utf-8', success: function (res) {
+        type: 'post', data: data, dataType: 'json', contentType: 'text/plain; charset=utf-8', headers: deleteAfter === 'never' ? {} : {'X-Delete-After': deleteAfter}, success: function (res) {
             _this.locked = true;
             _this.key = res.key;
             var high = hljs.highlightAuto(data);
@@ -269,7 +269,7 @@ haste.prototype.duplicateDocument = function () {
 haste.prototype.lockDocument = function () {
     console.log("LOCKING DOCUMENT");
     var _this = this;
-    this.doc.save(this.$textarea.val(), function (err, ret) {
+    this.doc.save(this.$textarea.val(), $('#delete-after').val(), function (err, ret) {
         if (err) {
             _this.showMessage(err.message, 'error');
         } else if (ret) {

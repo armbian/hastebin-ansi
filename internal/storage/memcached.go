@@ -2,6 +2,7 @@ package storage
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/rs/zerolog/log"
@@ -10,6 +11,11 @@ import (
 type MemcachedStorage struct {
 	client     *memcache.Client
 	expiration int
+}
+
+func (s *MemcachedStorage) SetWithDeleteAfter(key, value string, deleteAfter time.Duration) error {
+	seconds := int32((deleteAfter + time.Second - 1) / time.Second)
+	return s.client.Set(&memcache.Item{Key: key, Value: []byte(value), Expiration: seconds})
 }
 
 func NewMemcachedStorage(host string, port int, expiration int) *MemcachedStorage {

@@ -26,6 +26,14 @@ type RateLimitingConfig struct {
 
 	// Window is the time window to limit requests
 	Window int `yaml:"window"`
+
+	// TrustedProxyCount is the number of trusted proxies appended to X-Forwarded-For.
+	// Zero means use the direct TCP peer address and ignore forwarding headers.
+	TrustedProxyCount int `yaml:"trusted_proxy_count"`
+}
+
+type DeleteAfterConfig struct {
+	Enable bool `yaml:"enable"`
 }
 
 type StorageConfig struct {
@@ -113,6 +121,7 @@ type Config struct {
 
 	// RateLimiting is the rate limiting configuration
 	RateLimiting RateLimitingConfig `yaml:"rate_limiting"`
+	DeleteAfter  DeleteAfterConfig  `yaml:"delete_after"`
 
 	// Documents is the list of documents to load statically
 	Documents []DocumentConfig `yaml:"documents"`
@@ -287,6 +296,22 @@ func NewConfig(configFile string) *Config {
 		}
 
 		cfg.RateLimiting.Window = rateLimitingWindowInt
+	}
+
+	if trustedProxyCount := os.Getenv("RATE_LIMITING_TRUSTED_PROXY_COUNT"); trustedProxyCount != "" {
+		trustedProxyCountInt, err := strconv.Atoi(trustedProxyCount)
+		if err != nil || trustedProxyCountInt < 0 {
+			log.Fatal().Msg("RATE_LIMITING_TRUSTED_PROXY_COUNT must be a non-negative integer")
+		}
+		cfg.RateLimiting.TrustedProxyCount = trustedProxyCountInt
+	}
+
+	if deleteAfterEnable := os.Getenv("DELETE_AFTER_ENABLE"); deleteAfterEnable != "" {
+		deleteAfterEnableBool, err := strconv.ParseBool(deleteAfterEnable)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to parse DELETE_AFTER_ENABLE environment variable")
+		}
+		cfg.DeleteAfter.Enable = deleteAfterEnableBool
 	}
 
 	// Walk environment variables for documents

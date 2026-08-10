@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/armbian/ansi-hastebin/internal/keygenerator"
 	"github.com/armbian/ansi-hastebin/internal/storage"
@@ -36,10 +37,11 @@ var (
 
 // DocumentHandler manages document operations
 type DocumentHandler struct {
-	KeyLength    int
-	MaxLength    int
-	Store        storage.Storage
-	KeyGenerator keygenerator.KeyGenerator
+	KeyLength          int
+	MaxLength          int
+	Store              storage.Storage
+	KeyGenerator       keygenerator.KeyGenerator
+	DeleteAfterEnabled bool
 }
 
 func NewDocumentHandler(keyLength, maxLength int, store storage.Storage, keyGenerator keygenerator.KeyGenerator) *DocumentHandler {
@@ -143,7 +145,16 @@ func (h *DocumentHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := h.KeyGenerator.Generate(h.KeyLength)
-	if err := h.Store.Set(key, buffer.String(), false); err != nil {
+	expiresAt, err := h.storeDocument(key, buffer.String(), r.Header.Get("X-Delete-After"))
+	if err != nil {
+		if errors.Is(err, errInvalidDeleteAfter) {
+			http.Error(w, `{"message": "Invalid delete-after value."}`, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, errDeleteAfterDisabled) {
+			http.Error(w, `{"message": "Delete-after is disabled."}`, http.StatusForbidden)
+			return
+		}
 		log.Error().Err(err).Str("key", key).Msg("Failed to store document")
 		http.Error(w, `{"message": "Error storing document."}`, http.StatusInternalServerError)
 		return
@@ -154,9 +165,10 @@ func (h *DocumentHandler) HandlePost(w http.ResponseWriter, r *http.Request) {
 	pasteCreated.Inc()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(struct {
-		Key string `json:"key"`
+		Key       string     `json:"key"`
+		ExpiresAt *time.Time `json:"expires_at,omitempty"`
 	}{
-		Key: key,
+		Key: key, ExpiresAt: expiresAt,
 	})
 }
 
@@ -180,7 +192,16 @@ func (h *DocumentHandler) HandlePutLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := h.KeyGenerator.Generate(h.KeyLength)
-	if err := h.Store.Set(key, buffer.String(), false); err != nil {
+	_, err := h.storeDocument(key, buffer.String(), r.Header.Get("X-Delete-After"))
+	if err != nil {
+		if errors.Is(err, errInvalidDeleteAfter) {
+			http.Error(w, `{"message": "Invalid delete-after value."}`, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, errDeleteAfterDisabled) {
+			http.Error(w, `{"message": "Delete-after is disabled."}`, http.StatusForbidden)
+			return
+		}
 		log.Error().Err(err).Str("key", key).Msg("Failed to store document")
 		http.Error(w, `{"message": "Error storing document."}`, http.StatusInternalServerError)
 		return
@@ -189,6 +210,31 @@ func (h *DocumentHandler) HandlePutLog(w http.ResponseWriter, r *http.Request) {
 	log.Info().Str("key", key).Msg("Added document with log link")
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprintf(w, "\nhttps://%s/%s\n\n", r.Host, key)
+}
+
+var errInvalidDeleteAfter = errors.New("invalid delete-after")
+var errDeleteAfterDisabled = errors.New("delete-after is disabled")
+
+func (h *DocumentHandler) storeDocument(key, value, deleteAfter string) (*time.Time, error) {
+	if deleteAfter == "" || deleteAfter == "never" {
+		return nil, h.Store.Set(key, value, false)
+	}
+	if !h.DeleteAfterEnabled {
+		return nil, errDeleteAfterDisabled
+	}
+	ttl, err := time.ParseDuration(deleteAfter)
+	if err != nil || ttl <= 0 || ttl > 30*24*time.Hour {
+		return nil, errInvalidDeleteAfter
+	}
+	store, ok := h.Store.(storage.DeleteAfterStorage)
+	if !ok {
+		return nil, errors.New("storage backend does not support delete-after")
+	}
+	if err := store.SetWithDeleteAfter(key, value, ttl); err != nil {
+		return nil, err
+	}
+	expiresAt := time.Now().Add(ttl).UTC()
+	return &expiresAt, nil
 }
 
 // Reads body from the request

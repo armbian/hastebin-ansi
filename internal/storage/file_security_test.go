@@ -2,7 +2,9 @@ package storage
 
 import (
 	"os"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -36,4 +38,18 @@ func TestFileStorageSetUsesOwnerOnlyPermissions(t *testing.T) {
 	info, err := os.Stat(dir + "/" + md5Hex("key"))
 	require.NoError(t, err)
 	require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+}
+
+func TestFileStorageDeleteAfter(t *testing.T) {
+	dir, cleanup := setupTempDir(t)
+	t.Cleanup(cleanup)
+
+	store := NewFileStorage(dir, "none", 0).(*FileStorage)
+	require.NoError(t, store.SetWithDeleteAfter("key", "value", time.Hour))
+	require.NoError(t, os.WriteFile(dir+"/"+md5Hex("key")+".expires", []byte(strconv.FormatInt(time.Now().Add(-time.Second).Unix(), 10)), 0600))
+	removed, err := store.CleanupExpired()
+	require.NoError(t, err)
+	require.Equal(t, 1, removed)
+	_, err = store.Get("key", false)
+	require.ErrorIs(t, err, os.ErrNotExist)
 }

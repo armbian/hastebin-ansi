@@ -7,6 +7,9 @@ expiration: 0
 recompress_static_assets: false
 key_generator: "phonetic"
 
+delete_after:
+  enable: true
+
 storage:
   type: "file"
   file_path: "./test"
@@ -19,6 +22,8 @@ rate_limiting:
   enable: true
   limit: 500
   window: 15
+  # Keep 0 when the service is directly public. Set only behind trusted proxies.
+  trusted_proxy_count: 0
 
 logging:
   level: "info"

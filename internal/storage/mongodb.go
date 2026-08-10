@@ -20,10 +20,16 @@ type MongoDBStorage struct {
 }
 
 type item struct {
-	ObjectID   any       `json:"_id,omitempty" bson:"_id,omitempty"`
-	Key        string    `json:"key" bson:"key"`
-	Value      []byte    `json:"value" bson:"value"`
-	Expiration time.Time `json:"expiration,omitempty" bson:"expiration,omitempty"`
+	ObjectID        any       `json:"_id,omitempty" bson:"_id,omitempty"`
+	Key             string    `json:"key" bson:"key"`
+	Value           []byte    `json:"value" bson:"value"`
+	Expiration      time.Time `json:"expiration,omitempty" bson:"expiration,omitempty"`
+	FixedExpiration bool      `json:"fixed_expiration,omitempty" bson:"fixed_expiration,omitempty"`
+}
+
+func (s *MongoDBStorage) SetWithDeleteAfter(key, value string, deleteAfter time.Duration) error {
+	_, err := s.collection.InsertOne(context.Background(), item{Key: key, Value: []byte(value), Expiration: time.Now().Add(deleteAfter), FixedExpiration: true})
+	return err
 }
 
 func NewMongoDBStorage(host string, port int, username string, password string, database string, expiration time.Duration) *MongoDBStorage {
@@ -132,7 +138,7 @@ func (s *MongoDBStorage) Get(key string, skip_expiration bool) (string, error) {
 	}
 
 	// Update expiration
-	if !skip_expiration {
+	if !skip_expiration && !i.FixedExpiration {
 		i.Expiration = time.Now().Add(s.expiration)
 		update := bson.M{"$set": bson.M{"expiration": i.Expiration}}
 		if _, err := s.collection.UpdateOne(ctx, filter, update); err != nil {
