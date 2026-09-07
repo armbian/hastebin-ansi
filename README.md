@@ -46,7 +46,7 @@ Static assets are embedded in the Go binary, so rebuild the image after changing
 
 ### Local development
 
-Go 1.26 or newer is recommended (per `go.mod`).
+Go 1.26 or newer is required (per `go.mod`).
 
 ```bash
 go run ./cmd --config config.yaml
