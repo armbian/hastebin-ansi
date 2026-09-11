@@ -1,6 +1,13 @@
+<h2 align="center">
+  <a href=#><img src="https://raw.githubusercontent.com/armbian/.github/master/profile/logosmall.png" alt="Armbian logo"></a>
+  <br><br>
+</h2>
+
 # Armbian Hastebin
 
-Armbian Hastebin is a lightweight pastebin server written in Go with ANSI color rendering. It began as a fork of [haste-server](https://github.com/shykes/haste-server), then was migrated from Node.js to Go. Pastes can be stored on the filesystem, Redis, Memcached, MongoDB, PostgreSQL, or S3-compatible object storage.
+## Purpose of This Repository
+
+Armbian Hastebin is a lightweight pastebin server written in Go with ANSI color rendering. It began as a fork of [haste-server](https://github.com/shykes/haste-server), then was migrated from Node.js to Go, and supports multiple storage backends for saving pastes.
 
 ## Features
 
@@ -13,7 +20,19 @@ Armbian Hastebin is a lightweight pastebin server written in Go with ANSI color 
 - IP-based rate limiting, Prometheus metrics, and a health endpoint
 - Request-body, HTTP-header, and server timeout limits
 
-## Quick start
+## Built With
+
+- **Go** (`go.mod` targets Go 1.26) — application code under `cmd/`, `handler/`, `config/`, and `internal/`
+- **HTTP router**: [`go-chi/chi`](https://github.com/go-chi/chi) with [`go-chi/httprate`](https://github.com/go-chi/httprate) for rate limiting
+- **Storage clients**: `redis/go-redis`, `bradfitz/gomemcache`, `mongo-driver`, `jackc/pgx`, `aws-sdk-go-v2` (S3)
+- **Compression**: `klauspost/compress` (gzip, zstd)
+- **Observability**: `prometheus/client_golang`, `rs/zerolog`
+- **Testing**: `stretchr/testify`, `testcontainers-go` (including the MinIO module)
+- **Config**: `gopkg.in/yaml.v3`
+- **Front-end assets**: static HTML/CSS/JS under `static/`, embedded into the binary via `static/static.go`
+- **Container**: multi-stage `Dockerfile` (Alpine builder → `gcr.io/distroless/static:nonroot`)
+
+## Quick Start
 
 ### Docker Compose
 
@@ -21,19 +40,13 @@ Armbian Hastebin is a lightweight pastebin server written in Go with ANSI color 
 docker compose up --build
 ```
 
-The application listens on `http://localhost:7777` by default. Paste files are persisted under `./data`.
+The application listens on `http://localhost:7777` by default. Paste files are persisted under `./data` (see `docker-compose.yaml`).
 
-Static assets are embedded in the Go binary. Rebuild the image after changing the UI:
-
-```bash
-docker compose up --build
-```
-
-If the browser still serves an old JavaScript or CSS asset, use a hard refresh (`Ctrl+Shift+R`).
+Static assets are embedded in the Go binary, so rebuild the image after changing the UI. If the browser still serves an old JavaScript or CSS asset, use a hard refresh (`Ctrl+Shift+R`).
 
 ### Local development
 
-Go 1.26 or newer is required.
+Go 1.26 or newer is required (per `go.mod`).
 
 ```bash
 go run ./cmd --config config.yaml
@@ -179,3 +192,37 @@ The value uses Go duration syntax: `10m`, `1h`, `24h`, or `168h`. The maximum is
 - S3 stores expiry metadata and deletes an expired object when it is read. Configure an S3 bucket lifecycle policy to remove expired objects that are never read.
 
 When `delete_after.enable: false`, the UI selector is hidden and API requests with `X-Delete-After` return `403`.
+
+## Repository Layout
+
+```text
+cmd/                 # Application entry point (main.go)
+config/              # YAML/env configuration loader
+handler/             # HTTP handlers for documents
+internal/keygenerator/  # Random and phonetic key generators
+internal/server/     # HTTP server wiring
+internal/storage/    # Backends: file, redis, memcached, mongodb, postgres, s3
+internal/unsafeconv/ # Internal conversion helper
+static/              # Embedded UI assets (HTML/CSS/JS/images)
+scripts/compress/    # Auxiliary Go tool
+Dockerfile
+docker-compose.yaml
+config.yaml
+about.md
+```
+
+## Continuous Integration
+
+For an overview of this repository's CI workflows and their current status, see the Armbian CI dashboard:
+
+<https://actions.armbian.com/?repo=hastebin-ansi>
+
+## License
+
+Licensed under the **GNU Affero General Public License v3.0**. See [`LICENSE`](LICENSE) for the full text.
+
+## Related Links
+
+- Armbian: <https://www.armbian.com>
+- Armbian documentation: <https://docs.armbian.com>
+- Upstream inspiration: [haste-server](https://github.com/shykes/haste-server), [haste-client](https://github.com/seejohnrun/haste-client)
