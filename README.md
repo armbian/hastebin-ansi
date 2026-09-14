@@ -7,7 +7,7 @@
 
 ## Purpose of This Repository
 
-Armbian Hastebin is a lightweight pastebin server written in Go with ANSI color rendering. It began as a fork of [haste-server](https://github.com/shykes/haste-server), then was migrated from Node.js to Go, and supports multiple storage backends for saving pastes.
+Armbian Hastebin is a lightweight pastebin server written in Go with ANSI color rendering. It began as a fork of [haste-server](https://github.com/shykes/haste-server), was migrated from Node.js to Go, and supports several storage backends for saving pastes.
 
 ## Features
 
@@ -22,7 +22,7 @@ Armbian Hastebin is a lightweight pastebin server written in Go with ANSI color 
 
 ## Built With
 
-- **Go** (`go.mod` targets Go 1.26) — application code under `cmd/`, `handler/`, `config/`, and `internal/`
+- **Go** (`go.mod` module `github.com/armbian/ansi-hastebin`, targeting Go 1.26) — application code in `cmd/`, `handler/`, `config/`, and `internal/`
 - **HTTP router**: [`go-chi/chi`](https://github.com/go-chi/chi) with [`go-chi/httprate`](https://github.com/go-chi/httprate) for rate limiting
 - **Storage clients**: `redis/go-redis`, `bradfitz/gomemcache`, `mongo-driver`, `jackc/pgx`, `aws-sdk-go-v2` (S3)
 - **Compression**: `klauspost/compress` (gzip, zstd)
@@ -132,7 +132,7 @@ The PostgreSQL table and required migrations are created during startup.
 
 `trusted_proxy_count: 0` is the safe default: the rate-limit key uses the direct TCP peer IP and ignores client-provided `X-Forwarded-For` headers.
 
-If the service is behind a known number of trusted reverse proxies, for example one Nginx or Traefik proxy:
+If the service is behind a known number of trusted reverse proxies (for example one Nginx or Traefik proxy):
 
 ```yaml
 rate_limiting:
@@ -196,15 +196,15 @@ When `delete_after.enable: false`, the UI selector is hidden and API requests wi
 ## Repository Layout
 
 ```text
-cmd/                 # Application entry point (main.go)
-config/              # YAML/env configuration loader
-handler/             # HTTP handlers for documents
+cmd/                    # Application entry point (main.go)
+config/                 # YAML/env configuration loader
+handler/                # HTTP handlers for documents
 internal/keygenerator/  # Random and phonetic key generators
-internal/server/     # HTTP server wiring
-internal/storage/    # Backends: file, redis, memcached, mongodb, postgres, s3
-internal/unsafeconv/ # Internal conversion helper
-static/              # Embedded UI assets (HTML/CSS/JS/images)
-scripts/compress/    # Auxiliary Go tool
+internal/server/        # HTTP server wiring
+internal/storage/       # Backends: file, redis, memcached, mongodb, postgres, s3
+internal/unsafeconv/    # Internal conversion helper
+static/                 # Embedded UI assets (HTML/CSS/JS/images)
+scripts/compress/       # Auxiliary Go tool
 Dockerfile
 docker-compose.yaml
 config.yaml
